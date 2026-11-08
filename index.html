@@ -1,11 +1,603 @@
-var lastEditedCode = '';
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PolyCode - Online Code Runner</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1e1e">
+<style>
+  :root[data-theme="dark"] {
+    --bg:#1e1e1e; --panel:#252526; --panel2:#2d2d2d; --text:#e6e6e6; --muted:#9a9a9a;
+    --border:#3c3c3c; --accent:#007acc; --accent-h:#0a8fe6; --ok:#3fb950; --bad:#f85149;
+    --warn:#d29922; --out-bg:#0b0b0b; --out-text:#7CFC9A; --input-text:#ffcc66;
+  }
+  :root[data-theme="light"] {
+    --bg:#f3f3f3; --panel:#ffffff; --panel2:#f0f0f0; --text:#1f1f1f; --muted:#6b6b6b;
+    --border:#d4d4d4; --accent:#007acc; --accent-h:#005f9e; --ok:#1a7f37; --bad:#cf222e;
+    --warn:#9a6700; --out-bg:#fafafa; --out-text:#0b6b2d; --input-text:#8a5a00;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: Segoe UI, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  .wrap { padding: 14px 18px; }
+  header { display:flex; flex-wrap:wrap; align-items:center; gap:10px 16px; margin-bottom:12px; }
+  h1 { font-size:20px; margin:0; }
+  .sub { color:var(--muted); font-size:13px; }
+  .toolbar { display:flex; flex-wrap:wrap; gap:8px; margin-left:auto; align-items:center; }
+  select, button, textarea, input {
+    font-family: inherit; font-size:14px; color:var(--text); background:var(--panel2);
+    border:1px solid var(--border); border-radius:6px;
+  }
+  select { padding:8px 10px; }
+  button { padding:8px 12px; cursor:pointer; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; padding:8px 18px; }
+  button.primary:hover:not(:disabled) { background:var(--accent-h); }
+
+  /* Custom Searchable Select Dropdown */
+  .lang-select-container { position: relative; display: inline-block; }
+  .lang-select-btn { background: var(--panel2); color: var(--text); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; min-width: 150px; display: flex; justify-content: space-between; align-items: center; }
+  .lang-dropdown-menu { display: none; position: absolute; top: 105%; left: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; width: 220px; max-height: 300px; flex-direction: column; }
+  .lang-dropdown-menu.show { display: flex; }
+  .lang-search-input { width: 100%; padding: 8px; border: none; border-bottom: 1px solid var(--border); background: var(--panel2); color: var(--text); outline: none; border-radius: 6px 6px 0 0; }
+  .lang-options-list { overflow-y: auto; max-height: 240px; }
+  .lang-option-item { padding: 8px 12px; cursor: pointer; font-size: 14px; }
+  .lang-option-item:hover, .lang-option-item.selected { background: var(--accent); color: #fff; }
+
+  .app { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px; height:calc(100vh - 90px); min-height:520px; }
+  .pane { background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
+  #editor { flex:1; min-height:300px; }
+  .tabs { display:flex; border-bottom:1px solid var(--border); background:var(--panel2); }
+  .tab { border:none; border-radius:0; background:transparent; padding:10px 12px; font-size:13px; border-bottom:2px solid transparent; }
+  .tab.active { border-bottom-color:var(--accent); font-weight:600; }
+  .tabpanel { display:none; padding:12px; overflow:auto; flex:1; min-height:0; }
+  .tabpanel.active { display:block; }
+  label { display:block; font-weight:600; font-size:13px; margin:0 0 6px; }
+  textarea { width:100%; padding:8px; font-family:Consolas, monospace; resize:vertical; }
+  #stdin { height:70px; color:var(--input-text); }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:10px 0; }
+  .statusLine { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:8px; font-size:13px; }
+  .badge { padding:3px 10px; border-radius:20px; font-weight:600; font-size:12px; color:#fff; background:var(--muted); }
+  .badge.ok { background:var(--ok); } .badge.bad { background:var(--bad); } .badge.run { background:var(--warn); }
+  .meta { color:var(--muted); }
+  #output { background:var(--out-bg); color:var(--out-text); padding:12px; border-radius:6px; font-family:Consolas, monospace;
+            white-space:pre-wrap; word-break:break-word; min-height:120px; border:1px solid var(--border); }
+  #output .err { color:var(--bad); } #output .cmp { color:var(--warn); }
+  #output .lbl { display:block; color:var(--muted); font-size:11px; text-transform:uppercase; margin-top:8px; }
+  .hint { color:var(--muted); font-size:12px; }
+  .case { border:1px solid var(--border); border-radius:6px; padding:8px; margin-bottom:10px; background:var(--panel2); }
+  .case .head { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:13px; font-weight:600; }
+  .case .head .sp { flex:1; }
+  .case .cols { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .case textarea { height:60px; }
+  .case .detail { margin-top:6px; font-family:Consolas, monospace; font-size:12px; white-space:pre-wrap; color:var(--bad); }
+  .barrow { display:grid; grid-template-columns:90px 1fr 90px; gap:8px; align-items:center; margin:5px 0; font-size:13px; }
+  .bar { background:var(--panel2); border-radius:4px; height:16px; overflow:hidden; }
+  .fill { height:100%; background:var(--accent); } .fill.best { background:var(--ok); }
+  h4 { margin:14px 0 4px; font-size:13px; }
+  .aiout { margin-top:10px; font-size:14px; line-height:1.5; }
+  .aiout .prose { white-space:pre-wrap; margin:6px 0; }
+  .aiout pre { background:var(--out-bg); border:1px solid var(--border); border-radius:6px; padding:10px; overflow:auto;
+                font-family:Consolas, monospace; font-size:13px; margin:6px 0 0; }
+  .aiout .codebtns { display:flex; gap:6px; margin:4px 0 10px; }
+  .aiout .codebtns button { padding:4px 8px; font-size:12px; }
+  dialog { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:10px; max-width:460px; width:92%; }
+  dialog::backdrop { background:rgba(0,0,0,.55); }
+  dialog input { width:100%; padding:8px; margin-bottom:10px; }
+  #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff;
+            padding:8px 16px; border-radius:20px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; }
+  #toast.show { opacity:1; }
+  @media (max-width: 900px) {
+    .app { grid-template-columns:1fr; height:auto; }
+    #editor { height:420px; flex:none; }
+    .pane.side { min-height:420px; }
+    .toolbar { margin-left:0; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🚀 PolyCode</h1>
+    <span class="sub">Run code in 25+ languages &middot; test cases &middot; benchmark &middot; AI helper</span>
+    <div class="toolbar">
+      <!-- Searchable Language Selector Dropdown -->
+      <div class="lang-select-container">
+        <button id="langSelectBtn" class="lang-select-btn"><span>Select Language</span> ▾</button>
+        <div id="langDropdownMenu" class="lang-dropdown-menu">
+          <input type="text" id="langSearchInput" class="lang-search-input" placeholder="🔍 Search language...">
+          <div id="langOptionsList" class="lang-options-list"></div>
+        </div>
+      </div>
+
+      <button id="runBtn" class="primary" disabled>▶ Run</button>
+      <button id="shareBtn" title="Copy a link to this code">🔗 Share</button>
+      <button id="downloadBtn" title="Download the code file">⬇ Download</button>
+      <button id="resetBtn" title="Reset to the starter template">↺ Reset</button>
+      <button id="fontMinus" title="Smaller font">A−</button>
+      <button id="fontPlus" title="Bigger font">A+</button>
+      <button id="themeBtn" title="Dark / light theme">🌓</button>
+      <button id="settingsBtn" title="AI settings">⚙ AI key</button>
+    </div>
+  </header>
+
+  <div class="app">
+    <section class="pane"><div id="editor"></div></section>
+
+    <section class="pane side">
+      <div class="tabs">
+        <button class="tab active" data-tab="io">Input / Output</button>
+        <button class="tab" data-tab="tests">Test Cases</button>
+        <button class="tab" data-tab="bench">Benchmark</button>
+        <button class="tab" data-tab="ai">✨ AI</button>
+      </div>
+
+      <!-- Input / Output -->
+      <div id="tab-io" class="tabpanel active">
+        <label for="stdin">Standard Input (STDIN)</label>
+        <textarea id="stdin" placeholder="Enter input here..."></textarea>
+        <div class="row">
+          <span class="hint">Run with the button or press Ctrl + Enter</span>
+        </div>
+        <div class="statusLine" id="statusLine"></div>
+        <div id="output">Loading editor...</div>
+        <div class="row">
+          <button id="copyOutBtn">Copy output</button>
+          <button id="explainBtn" style="display:none">✨ Explain this error</button>
+        </div>
+      </div>
+
+      <!-- Test cases -->
+      <div id="tab-tests" class="tabpanel">
+        <div class="row">
+          <button id="addTestBtn">+ Add test case</button>
+          <button id="runTestsBtn" class="primary">▶ Run all tests</button>
+          <strong id="testSummary"></strong>
+        </div>
+        <p class="hint">Each test sends the input to your code and compares the output with expected output.</p>
+        <div id="testList"></div>
+      </div>
+
+      <!-- Benchmark -->
+      <div id="tab-bench" class="tabpanel">
+        <p class="hint">Compare performance across languages.</p>
+        <div class="row">
+          <button id="benchBtn" class="primary">▶ Run benchmark</button>
+          <span id="benchStatus" class="hint"></span>
+        </div>
+        <div id="benchOut"></div>
+      </div>
+
+      <!-- AI -->
+      <div id="tab-ai" class="tabpanel">
+        <p class="hint">Needs your own Anthropic API key (⚙ AI key).</p>
+        <div class="row">
+          <button id="aiErrBtn">✨ Explain last error</button>
+          <button id="aiExplainBtn">✨ Explain my code</button>
+        </div>
+        <div class="row">
+          <label for="convTarget" style="margin:0">Convert my code to</label>
+          <select id="convTarget"></select>
+          <button id="aiConvBtn">✨ Convert</button>
+        </div>
+        <div id="aiOut" class="aiout"></div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<dialog id="settings">
+  <h3 style="margin-top:0">AI settings</h3>
+  <label for="apiKey">Anthropic API key</label>
+  <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+  <label for="modelName">Model</label>
+  <input id="modelName" type="text">
+  <p class="hint">Your key is saved only in this browser (localStorage).</p>
+  <div class="row">
+    <button id="saveKeyBtn" class="primary">Save</button>
+    <button id="removeKeyBtn">Remove key</button>
+    <button id="closeKeyBtn">Close</button>
+  </div>
+</dialog>
+<div id="toast"></div>
+
+<!-- Register Service Worker for PWA Installation -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js').then(function(reg) {
+        console.log('ServiceWorker registered:', reg);
+      }).catch(function(err) {
+        console.log('ServiceWorker registration failed:', err);
+      });
+    });
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var store = {
+    get: function (k, d) { try { var v = localStorage.getItem('polycode.' + k); return v === null ? d : v; } catch (e) { return d; } },
+    set: function (k, v) { try { localStorage.setItem('polycode.' + k, v); } catch (e) {} },
+    del: function (k) { try { localStorage.removeItem('polycode.' + k); } catch (e) {} }
+  };
+  function b64enc(str) {
+    var bytes = new TextEncoder().encode(str), bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function b64dec(b64) {
+    if (!b64) return '';
+    try {
+      var bin = atob(String(b64).replace(/\s/g, ''));
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    } catch (e) { return ''; }
+  }
+  function toB64Url(s) { return b64enc(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+  function fromB64Url(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return b64dec(s); }
+  var toastTimer;
+  function toast(msg) {
+    var t = $('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // ---------- Languages List ----------
+  var LANGS = {
+    html:       { name: 'HTML / Web',   id: null, monaco: 'html',       file: 'index.html' },
+    c:          { name: 'C',            id: 50,   monaco: 'c',          file: 'main.c' },
+    cpp:        { name: 'C++',          id: 54,   monaco: 'cpp',        file: 'main.cpp' },
+    python:     { name: 'Python',       id: 71,   monaco: 'python',     file: 'main.py' },
+    java:       { name: 'Java',         id: 62,   monaco: 'java',       file: 'Main.java' },
+    javascript: { name: 'JavaScript',   id: 63,   monaco: 'javascript', file: 'main.js' },
+    typescript: { name: 'TypeScript',   id: 74,   monaco: 'typescript', file: 'main.ts' },
+    julia:      { name: 'Julia',        id: 68,   monaco: 'julia',      file: 'main.jl' },
+    r:          { name: 'R',            id: 80,   monaco: 'r',          file: 'main.r' },
+    csharp:     { name: 'C# (.NET)',    id: 51,   monaco: 'csharp',     file: 'Program.cs' },
+    php:        { name: 'PHP',          id: 68,   monaco: 'php',        file: 'main.php' },
+    ruby:       { name: 'Ruby',         id: 72,   monaco: 'ruby',       file: 'main.rb' },
+    go:         { name: 'Go',           id: 60,   monaco: 'go',         file: 'main.go' },
+    rust:       { name: 'Rust',         id: 73,   monaco: 'rust',       file: 'main.rs' },
+    kotlin:     { name: 'Kotlin',       id: 78,   monaco: 'kotlin',     file: 'main.kt' },
+    swift:      { name: 'Swift',        id: 83,   monaco: 'swift',      file: 'main.swift' },
+    dart:       { name: 'Dart',         id: 90,   monaco: 'dart',       file: 'main.dart' },
+    bash:       { name: 'Bash / Shell', id: 46,   monaco: 'shell',      file: 'script.sh' },
+    lua:        { name: 'Lua',          id: 64,   monaco: 'lua',        file: 'main.lua' },
+    scala:      { name: 'Scala',        id: 81,   monaco: 'scala',      file: 'Main.scala' },
+    haskell:    { name: 'Haskell',      id: 61,   monaco: 'haskell',    file: 'main.hs' },
+    clojure:    { name: 'Clojure',      id: 86,   monaco: 'clojure',    file: 'main.clj' },
+    sql:        { name: 'SQL (SQLite)', id: 82,   monaco: 'sql',        file: 'query.sql' }
+  };
+
+  var TEMPLATES = {
+    html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }\n    h1 { color: #007acc; }\n  </style>\n</head>\n<body>\n  <h1>Hello from PolyCode Web Preview!</h1>\n</body>\n</html>`,
+    c: String.raw`#include <stdio.h>
+#include <string.h>
+int main() {
+    char name[50];
+    if (fgets(name, sizeof(name), stdin) != NULL) {
+        name[strcspn(name, "\r\n")] = 0;
+        if (strlen(name) == 0) strcpy(name, "World");
+    } else {
+        strcpy(name, "World");
+    }
+    printf("Hello, %s!\n", name);
+    return 0;
+}`,
+    cpp: String.raw`#include <iostream>
+#include <string>
+using namespace std;
+int main() {
+    string name;
+    if (!(getline(cin, name)) || name.empty()) {
+        name = "World";
+    }
+    cout << "Hello, " << name << "!" << endl;
+    return 0;
+}`,
+    python: String.raw`import sys
+name = sys.stdin.read().strip()
+if not name:
+    name = "World"
+print(f"Hello, {name}!")`,
+    java: String.raw`import java.util.Scanner;
+public class Main {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        String name = scanner.hasNextLine() ? scanner.nextLine().trim() : "World";
+        if (name.isEmpty()) name = "World";
+        System.out.println("Hello, " + name + "!");
+    }
+}`,
+    javascript: String.raw`const name = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+console.log('Hello, ' + name + '!');`,
+    typescript: String.raw`const name: string = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+console.log('Hello, ' + name + '!');`,
+    julia: String.raw`name = strip(readline(stdin))
+if isempty(name)
+    name = "World"
+end
+println("Hello, $name!")`,
+    r: String.raw`name <- trimws(readLines("stdin", n=1, warn=FALSE))
+if (length(name) == 0 || name == "") name <- "World"
+cat(paste0("Hello, ", name, "!\n"))`,
+    csharp: String.raw`using System;
+class Program {
+    static void Main() {
+        string name = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(name)) name = "World";
+        Console.WriteLine("Hello, " + name.Trim() + "!");
+    }
+}`,
+    php: String.raw`<?php
+$name = trim(stream_get_contents(STDIN));
+if ($name === "") $name = "World";
+echo "Hello, " . $name . "!\n";
+?>`,
+    ruby: String.raw`name = STDIN.gets&.strip
+name = "World" if name.nil? || name.empty?
+puts "Hello, #{name}!"`,
+    go: String.raw`package main
+import (
+    "bufio"
+    "fmt"
+    "os"
+    "strings"
+)
+func main() {
+    reader := bufio.NewReader(os.Stdin)
+    name, _ := reader.ReadString('\n')
+    name = strings.TrimSpace(name)
+    if name == "" {
+        name = "World"
+    }
+    fmt.Printf("Hello, %s!\n", name)
+}`,
+    rust: String.raw`use std::io::{self, BufRead};
+fn main() {
+    let stdin = io::stdin();
+    let mut name = String::new();
+    if let Ok(n) = stdin.lock().read_line(&mut name) {
+        if n == 0 || name.trim().is_empty() {
+            name = String::from("World");
+        }
+    } else {
+        name = String::from("World");
+    }
+    println!("Hello, {}!", name.trim());
+}`,
+    kotlin: String.raw`fun main() {
+    var name = readLine()?.trim() ?: "World"
+    if (name.isEmpty()) name = "World"
+    println("Hello, $name!")
+}`,
+    swift: String.raw`import Foundation
+let input = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+let name = input.isEmpty ? "World" : input
+print("Hello, \(name)!")`,
+    dart: String.raw`import 'dart:io';
+void main() {
+    String? input = stdin.readLineSync();
+    String name = (input == null || input.trim().isEmpty) ? 'World' : input.trim();
+    print('Hello, $name!');
+}`,
+    bash: String.raw`read -r name
+if [ -z "$name" ]; then
+    name="World"
+fi
+echo "Hello, $name!"`,
+    lua: String.raw`local name = io.read("*l")
+if not name or name == "" then
+    name = "World"
+end
+print("Hello, " .. name .. "!")`,
+    scala: String.raw`object Main extends App {
+    val name = scala.io.StdIn.readLine()
+    val finalName = if (name == null || name.trim.isEmpty) "World" else name.trim
+    println(s"Hello, $finalName!")
+}`,
+    haskell: String.raw`main = do
+    input <- getLine
+    let name = if null (filter (/= ' ') input) then "World" else input
+    putStrLn ("Hello, " ++ name ++ "!")`,
+    clojure: String.raw`(let [name (read-line)]
+  (let [n (if (or (nil? name) (empty? (.trim name))) "World" (.trim name))]
+    (println (str "Hello, " n "!"))))`,
+    sql: String.raw`CREATE TABLE students (id INT, name TEXT);
+INSERT INTO students VALUES (1, 'Rohan');
+SELECT * FROM students;`
+  };
+
+  var JUDGE_URL = 'https://ce.judge0.com/submissions?base64_encoded=true&wait=true';
+  var MODEL_DEFAULT = 'claude-sonnet-5-5';
+
+  var editor = null;
+  var suppressSave = false;
+  var saveTimer = null;
+  var running = false;
+  var lastRun = null;
+  var fontSize = parseInt(store.get('font', '15'), 10) || 15;
+  var theme = store.get('theme', 'dark');
+  var tests = [];
+  try { tests = JSON.parse(store.get('tests', '[]')) || []; } catch (e) { tests = []; }
+
+  var shared = null;
+  if (location.hash.indexOf('#s=') === 0) {
+    try { shared = JSON.parse(fromB64Url(location.hash.slice(3))); } catch (e) { shared = null; }
+  }
+  var currentLang = (shared && LANGS[shared.l]) ? shared.l : store.get('lang', 'c');
+  if (!LANGS[currentLang]) currentLang = 'c';
+
+  var langSelectBtn = $('langSelectBtn');
+  var langDropdownMenu = $('langDropdownMenu');
+  var langSearchInput = $('langSearchInput');
+  var langOptionsList = $('langOptionsList');
+  var convTarget = $('convTarget');
+
+  function populateLanguages() {
+    langOptionsList.textContent = '';
+    convTarget.textContent = '';
+
+    Object.keys(LANGS).forEach(function (k) {
+      var item = el('div', 'lang-option-item' + (k === currentLang ? ' selected' : ''), LANGS[k].name);
+      item.dataset.lang = k;
+      item.addEventListener('click', function () {
+        switchLang(k);
+        closeLangDropdown();
+      });
+      langOptionsList.appendChild(item);
+
+      var o = el('option', '', LANGS[k].name); o.value = k; convTarget.appendChild(o);
+    });
+
+    langSelectBtn.querySelector('span').textContent = LANGS[currentLang].name;
+    convTarget.value = currentLang === 'python' ? 'cpp' : 'python';
+  }
+
+  function openLangDropdown() {
+    langDropdownMenu.classList.add('show');
+    langSearchInput.value = '';
+    filterLanguages('');
+    langSearchInput.focus();
+  }
+
+  function closeLangDropdown() {
+    langDropdownMenu.classList.remove('show');
+  }
+
+  function filterLanguages(query) {
+    var q = query.toLowerCase();
+    var items = langOptionsList.querySelectorAll('.lang-option-item');
+    items.forEach(function (item) {
+      var text = item.textContent.toLowerCase();
+      item.style.display = text.indexOf(q) !== -1 ? 'block' : 'none';
+    });
+  }
+
+  langSelectBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (langDropdownMenu.classList.contains('show')) closeLangDropdown();
+    else openLangDropdown();
+  });
+
+  langSearchInput.addEventListener('input', function () {
+    filterLanguages(langSearchInput.value);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!langDropdownMenu.contains(e.target) && e.target !== langSelectBtn) {
+      closeLangDropdown();
+    }
+  });
+
+  $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', '');
+  document.documentElement.setAttribute('data-theme', theme);
+  $('stdin').addEventListener('input', function () { store.set('stdin', $('stdin').value); });
+
+  function showTab(name) {
+    document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
+    document.querySelectorAll('.tabpanel').forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + name); });
+  }
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () { showTab(t.dataset.tab); });
+  });
+
+  function saveNow() {
+    if (!editor) return;
+    var c = editor.getValue();
+    if (c === TEMPLATES[currentLang]) store.del('code.' + currentLang);
+    else store.set('code.' + currentLang, c);
+  }
+  function loadCode(lang) {
+    var code = store.get('code.' + lang, TEMPLATES[lang] || '');
+    suppressSave = true;
+    editor.setValue(code);
+    suppressSave = false;
+    monaco.editor.setModelLanguage(editor.getModel(), LANGS[lang].monaco);
+  }
+  function switchLang(lang) {
+    saveNow();
+    currentLang = lang;
+    store.set('lang', lang);
+    populateLanguages();
+    loadCode(lang);
+    lastRun = null;
+    $('explainBtn').style.display = 'none';
+  }
+  function getCode(lang) {
+    if (lang === currentLang && editor) return editor.getValue();
+    return store.get('code.' + lang, '');
+  }
+
+  function judge(lang, code, stdin) {
+    return fetch(JUDGE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ language_id: LANGS[lang].id, source_code: b64enc(code), stdin: b64enc(stdin || '') })
+    }).then(function (res) {
+      if (!res.ok) { var err = new Error('HTTP ' + res.status); err.status = res.status; throw err; }
+      return res.json();
+    }).then(function (d) {
+      return {
+        statusId: d.status ? d.status.id : 0,
+        status: d.status ? d.status.description : 'Unknown',
+        stdout: b64dec(d.stdout || ''),
+        stderr: b64dec(d.stderr || ''),
+        compile: b64dec(d.compile_output || ''),
+        message: b64dec(d.message || ''),
+        time: d.time,
+        memory: d.memory
+      };
+    });
+  }
+  function friendlyError(err) {
+    if (err && err.status === 429) return 'Too many requests. The free server is busy, wait a few seconds and try again.';
+    if (err && err.status) return 'Server error (' + err.status + '). Try again in a moment.';
+    return 'Network error: could not connect to the execution server.';
+  }
+
+  function renderOutput(res) {
+    var sl = $('statusLine'), out = $('output');
+    sl.textContent = ''; out.textContent = '';
+    var b = el('span', 'badge ' + (res.statusId === 3 ? 'ok' : 'bad'), res.status);
+    sl.appendChild(b);
+    if (res.time) sl.appendChild(el('span', 'meta', '⏱ ' + res.time + ' s'));
+    if (res.memory) sl.appendChild(el('span', 'meta', '💾 ' + res.memory + ' KB'));
+    
+    var cleanStdout = res.stdout ? res.stdout.trim() : '';
+
+    function section(label, text, cls) {
+      if (!text) return;
+      out.appendChild(el('span', 'lbl', label));
+      out.appendChild(el('span', cls || '', text));
+    }
+    section('Compile output', res.compile, 'cmp');
+    section('Output', cleanStdout, '');
+    section('Errors', res.stderr, 'err');
+    section('Message', res.message, 'err');
+    if (!out.firstChild) out.textContent = 'Program finished with no output.';
+    $('explainBtn').style.display = (res.statusId !== 3) ? 'inline-block' : 'none';
+  }
+
+  var lastEditedCode = '';
 
   function runMain() {
     if (running || !editor) return;
     showTab('io');
     var lang = currentLang, code = editor.getValue();
 
-    // HTML Web Preview Rendering via iframe
     if (lang === 'html') {
       var out = $('output');
       out.innerHTML = '<iframe id="htmlPreview" style="width:100%; height:300px; border:none; background:#fff; border-radius:4px;"></iframe>';
@@ -16,15 +608,12 @@ var lastEditedCode = '';
       return;
     }
 
-    // Auto-clear STDIN if you changed the code block since the last run
     if (lastEditedCode && lastEditedCode !== code) {
       $('stdin').value = '';
     }
     lastEditedCode = code;
 
     var stdin = $('stdin').value;
-    
-    // Universal check across any language to see if input functions are used
     var lowerCode = code.toLowerCase();
     var needsInput = lowerCode.includes('input') || 
                      lowerCode.includes('readline') || 
@@ -36,12 +625,11 @@ var lastEditedCode = '';
                      lowerCode.includes('sys.stdin') ||
                      lowerCode.includes('getline');
     
-    // If the program needs input and the STDIN box is blank, prompt generically
     if (needsInput && !stdin) {
       var userInput = window.prompt("Enter input for your program:", "");
       if (userInput !== null) {
         stdin = userInput;
-        $('stdin').value = userInput; // Populates the STDIN panel cleanly
+        $('stdin').value = userInput;
       }
     }
 
@@ -59,3 +647,219 @@ var lastEditedCode = '';
       $('output').textContent = friendlyError(err);
     }).then(function () { running = false; $('runBtn').disabled = false; });
   }
+
+  $('runBtn').addEventListener('click', runMain);
+  document.addEventListener('keydown', function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMain(); }
+  });
+
+  $('copyOutBtn').addEventListener('click', function () {
+    var txt = $('output').textContent;
+    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Output copied'); }, function () { toast('Copy failed'); });
+  });
+
+  $('resetBtn').addEventListener('click', function () {
+    if (!confirm('Reset ' + LANGS[currentLang].name + ' code to the starter template?')) return;
+    store.del('code.' + currentLang); loadCode(currentLang);
+  });
+  $('downloadBtn').addEventListener('click', function () {
+    var blob = new Blob([editor.getValue()], { type: 'text/plain' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = LANGS[currentLang].file;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+  $('shareBtn').addEventListener('click', function () {
+    var payload = JSON.stringify({ l: currentLang, c: editor.getValue(), i: $('stdin').value });
+    var url = location.href.split('#')[0] + '#s=' + toB64Url(payload);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function () { toast('Link copied'); },
+        function () { window.prompt('Copy this link:', url); });
+    } else { window.prompt('Copy this link:', url); }
+  });
+  $('fontPlus').addEventListener('click', function () { setFont(fontSize + 1); });
+  $('fontMinus').addEventListener('click', function () { setFont(fontSize - 1); });
+  function setFont(n) {
+    fontSize = Math.max(10, Math.min(28, n)); store.set('font', String(fontSize));
+    if (editor) editor.updateOptions({ fontSize: fontSize });
+  }
+  $('themeBtn').addEventListener('click', function () {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    store.set('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+    if (editor) monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs');
+  });
+
+  var caseRefs = [];
+  function saveTests() { store.set('tests', JSON.stringify(tests)); }
+  function renderTests() {
+    var list = $('testList'); list.textContent = ''; caseRefs = [];
+    if (!tests.length) { list.appendChild(el('p', 'hint', 'No test cases yet. Click "+ Add test case".')); return; }
+    tests.forEach(function (t, i) {
+      var box = el('div', 'case');
+      var head = el('div', 'head');
+      head.appendChild(el('span', '', 'Test ' + (i + 1)));
+      var badge = el('span', 'badge', 'Not run');
+      head.appendChild(badge); head.appendChild(el('span', 'sp'));
+      var del = el('button', '', '✕'); del.title = 'Remove this test'; del.style.padding = '2px 8px';
+      del.addEventListener('click', function () { tests.splice(i, 1); saveTests(); renderTests(); });
+      head.appendChild(del); box.appendChild(head);
+      var cols = el('div', 'cols');
+      var c1 = el('div'); c1.appendChild(el('label', '', 'Input'));
+      var ta1 = el('textarea'); ta1.value = t.input || '';
+      ta1.addEventListener('input', function () { tests[i].input = ta1.value; saveTests(); });
+      c1.appendChild(ta1);
+      var c2 = el('div'); c2.appendChild(el('label', '', 'Expected output'));
+      var ta2 = el('textarea'); ta2.value = t.expected || '';
+      ta2.addEventListener('input', function () { tests[i].expected = ta2.value; saveTests(); });
+      c2.appendChild(ta2);
+      cols.appendChild(c1); cols.appendChild(c2); box.appendChild(cols);
+      var detail = el('div', 'detail'); box.appendChild(detail);
+      list.appendChild(box);
+      caseRefs.push({ badge: badge, detail: detail });
+    });
+  }
+  $('addTestBtn').addEventListener('click', function () { tests.push({ input: '', expected: '' }); saveTests(); renderTests(); });
+
+  function norm(s) {
+    return String(s).replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+$/, ''); }).join('\n').replace(/\s+$/, '');
+  }
+  function setBadge(b, text, cls) { b.textContent = text; b.className = 'badge ' + (cls || ''); }
+
+  function runTests() {
+    if (running || !editor) return;
+    if (!tests.length) { toast('Add a test case first'); return; }
+    running = true; $('runBtn').disabled = true; $('runTestsBtn').disabled = true;
+    var lang = currentLang, code = editor.getValue(), passed = 0, i = 0;
+    $('testSummary').textContent = 'Running...';
+    caseRefs.forEach(function (r) { setBadge(r.badge, 'Waiting', ''); r.detail.textContent = ''; });
+    function finish(msg) {
+      $('testSummary').textContent = msg;
+      running = false; $('runBtn').disabled = false; $('runTestsBtn').disabled = false;
+    }
+    function next() {
+      if (i >= tests.length) { finish(passed + ' / ' + tests.length + ' passed'); return; }
+      var idx = i, ref = caseRefs[idx];
+      setBadge(ref.badge, 'Running', 'run');
+      judge(lang, code, tests[idx].input).then(function (res) {
+        var ok = res.statusId === 3 && norm(res.stdout) === norm(tests[idx].expected);
+        if (ok) { passed++; setBadge(ref.badge, 'Passed', 'ok'); }
+        else {
+          setBadge(ref.badge, res.statusId === 3 ? 'Wrong answer' : res.status, 'bad');
+          ref.detail.textContent = res.statusId === 3
+            ? 'Your output:\n' + (res.stdout || '(empty)')
+            : (res.compile || res.stderr || res.message || res.status);
+        }
+        i++; next();
+      }).catch(function (err) {
+        setBadge(ref.badge, 'Stopped', 'bad');
+        finish(passed + ' / ' + tests.length + ' passed. ' + friendlyError(err));
+      });
+    }
+    next();
+  }
+  $('runTestsBtn').addEventListener('click', runTests);
+
+  function runBenchmark() {
+    if (running || !editor) return;
+    saveNow();
+    var langs = Object.keys(LANGS).filter(function (k) {
+      var c = getCode(k); return c && c.trim() && c !== TEMPLATES[k];
+    });
+    var out = $('benchOut'); out.textContent = '';
+    if (langs.length < 2) { $('benchStatus').textContent = 'Write or convert your program in at least 2 languages first.'; return; }
+    running = true; $('runBtn').disabled = true; $('benchBtn').disabled = true;
+    var stdin = $('stdin').value, rows = [], i = 0;
+    function done() {
+      running = false; $('runBtn').disabled = false; $('benchBtn').disabled = false;
+      $('benchStatus').textContent = 'Done.'; renderBench(rows);
+    }
+    function next() {
+      if (i >= langs.length) { done(); return; }
+      var lang = langs[i++];
+      $('benchStatus').textContent = 'Running ' + LANGS[lang].name + ' (' + i + '/' + langs.length + ')...';
+      judge(lang, getCode(lang), stdin).then(function (res) {
+        rows.push({ lang: lang, ok: res.statusId === 3, status: res.status, time: parseFloat(res.time) || 0, memory: res.memory || 0 });
+        next();
+      }).catch(function (err) {
+        $('benchStatus').textContent = friendlyError(err);
+        rows.push({ lang: lang, ok: false, status: 'Failed to run', time: 0, memory: 0 });
+        done();
+      });
+    }
+    next();
+  }
+  function bars(rows, key, unit, title) {
+    var box = el('div'); box.appendChild(el('h4', '', title));
+    var ok = rows.filter(function (r) { return r.ok; });
+    if (!ok.length) { box.appendChild(el('p', 'hint', 'No successful runs.')); return box; }
+    var max = Math.max.apply(null, ok.map(function (r) { return r[key]; })) || 1;
+    var min = Math.min.apply(null, ok.map(function (r) { return r[key]; }));
+    ok.forEach(function (r) {
+      var row = el('div', 'barrow');
+      row.appendChild(el('span', '', LANGS[r.lang].name));
+      var bar = el('div', 'bar'), fill = el('div', 'fill' + (r[key] === min ? ' best' : ''));
+      fill.style.width = Math.max(3, (r[key] / max) * 100) + '%';
+      bar.appendChild(fill); row.appendChild(bar);
+      row.appendChild(el('span', '', r[key] + ' ' + unit));
+      box.appendChild(row);
+    });
+    return box;
+  }
+  function renderBench(rows) {
+    var out = $('benchOut'); out.textContent = '';
+    out.appendChild(bars(rows, 'time', 's', 'Run time (green = fastest)'));
+    out.appendChild(bars(rows, 'memory', 'KB', 'Memory (green = lowest)'));
+    var bad = rows.filter(function (r) { return !r.ok; });
+    if (bad.length) {
+      out.appendChild(el('h4', '', 'Did not run successfully'));
+      bad.forEach(function (r) { out.appendChild(el('div', 'hint', LANGS[r.lang].name + ': ' + r.status)); });
+    }
+  }
+  $('benchBtn').addEventListener('click', runBenchmark);
+
+  var AI_SYSTEM = 'You are a friendly coding mentor inside a small online code runner. Be concise and beginner friendly. Use short paragraphs and fenced code blocks.';
+  function openSettings() {
+    $('apiKey').value = store.get('apikey', ''); $('modelName').value = store.get('model', MODEL_DEFAULT);
+    if ($('settings').showModal) $('settings').showModal(); else $('settings').setAttribute('open', '');
+  }
+  $('settingsBtn').addEventListener('click', openSettings);
+  $('closeKeyBtn').addEventListener('click', function () { $('settings').close(); });
+  $('saveKeyBtn').addEventListener('click', function () {
+    var k = $('apiKey').value.trim(), m = $('modelName').value.trim() || MODEL_DEFAULT;
+    if (k) store.set('apikey', k); store.set('model', m);
+    $('settings').close(); toast('Saved');
+  });
+  $('removeKeyBtn').addEventListener('click', function () { store.del('apikey'); $('apiKey').value = ''; toast('Key removed'); });
+
+  populateLanguages();
+
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+  require(['vs/editor/editor.main'], function () {
+    var initCode = (shared && typeof shared.c === 'string') ? shared.c : store.get('code.' + currentLang, TEMPLATES[currentLang]);
+    editor = monaco.editor.create($('editor'), {
+      value: initCode,
+      language: LANGS[currentLang].monaco,
+      theme: theme === 'dark' ? 'vs-dark' : 'vs',
+      fontSize: fontSize,
+      minimap: { enabled: false },
+      automaticLayout: true,
+      scrollBeyondLastLine: false
+    });
+
+    $('runBtn').disabled = false;
+    $('output').textContent = 'Ready.';
+
+    editor.onDidChangeModelContent(function () {
+      if (suppressSave) return;
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveNow, 1000);
+    });
+
+    renderTests();
+  });
+
+})();
+</script>
+</body>
+</html>
