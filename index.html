@@ -638,8 +638,18 @@ SELECT * FROM students;`
       return;
     }
 
-    running = true; $('runBtn').disabled = true;
     var stdin = $('stdin').value;
+    var needsInput = code.includes('input') || code.includes('readline') || code.includes('cin') || code.includes('scanf') || code.includes('gets') || code.includes('read-line') || code.includes('getLine');
+    
+    if (needsInput && !stdin) {
+      var userInput = window.prompt("Enter the required input for your program:", "Rohan");
+      if (userInput !== null) {
+        stdin = userInput;
+        $('stdin').value = userInput;
+      }
+    }
+
+    running = true; $('runBtn').disabled = true;
     $('statusLine').textContent = '';
     $('statusLine').appendChild(el('span', 'badge run', 'Running...'));
     $('output').textContent = 'Running code on the server...';
