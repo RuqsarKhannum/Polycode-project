@@ -254,7 +254,7 @@
     return e;
   }
 
-  // ---------- Comprehensive Languages List (Judge0 CE IDs + STDIN-Reading Templates) ----------
+  // ---------- Comprehensive Languages List (Judge0 CE IDs + Prompt-Enabled Templates) ----------
   var LANGS = {
     html:       { name: 'HTML / Web',   id: null, monaco: 'html',       file: 'index.html' },
     c:          { name: 'C',            id: 50,   monaco: 'c',          file: 'main.c' },
@@ -286,6 +286,8 @@
     c: String.raw`#include <stdio.h>
 #include <string.h>
 int main() {
+    printf("Enter your name: ");
+    fflush(stdout);
     char name[50];
     if (fgets(name, sizeof(name), stdin) != NULL) {
         name[strcspn(name, "\r\n")] = 0;
@@ -300,6 +302,7 @@ int main() {
 #include <string>
 using namespace std;
 int main() {
+    cout << "Enter your name: " << flush;
     string name;
     if (!(getline(cin, name)) || name.empty()) {
         name = "World";
@@ -307,7 +310,8 @@ int main() {
     cout << "Hello, " << name << "!" << endl;
     return 0;
 }`,
-    python: String.raw`import sys
+    python: String.raw`print("Enter your name: ", end="", flush=True)
+import sys
 name = sys.stdin.read().strip()
 if not name:
     name = "World"
@@ -315,38 +319,50 @@ print(f"Hello, {name}!")`,
     java: String.raw`import java.util.Scanner;
 public class Main {
     public static void main(String[] args) {
+        System.out.print("Enter your name: ");
         Scanner scanner = new Scanner(System.in);
         String name = scanner.hasNextLine() ? scanner.nextLine().trim() : "World";
         if (name.isEmpty()) name = "World";
         System.out.println("Hello, " + name + "!");
     }
 }`,
-    javascript: String.raw`const name = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+    javascript: String.raw`process.stdout.write("Enter your name: ");
+const name = require('fs').readFileSync(0, 'utf8').trim() || 'World';
 console.log('Hello, ' + name + '!');`,
-    typescript: String.raw`const name: string = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+    typescript: String.raw`process.stdout.write("Enter your name: ");
+const name: string = require('fs').readFileSync(0, 'utf8').trim() || 'World';
 console.log('Hello, ' + name + '!');`,
-    julia: String.raw`name = strip(readline(stdin))
-if isempty(name)
-    name = "World"
+    julia: String.raw`function main()
+    print("Enter your name: ")
+    flush(stdout)
+    name = strip(readline(stdin))
+    if isempty(name)
+        name = "World"
+    end
+    println("Hello, $name!")
 end
-println("Hello, $name!")`,
-    r: String.raw`name <- trimws(readLines("stdin", n=1, warn=FALSE))
+main()`,
+    r: String.raw`cat("Enter your name: ")
+name <- trimws(readLines("stdin", n=1, warn=FALSE))
 if (length(name) == 0 || name == "") name <- "World"
 cat(paste0("Hello, ", name, "!\n"))`,
     csharp: String.raw`using System;
 class Program {
     static void Main() {
+        Console.Write("Enter your name: ");
         string name = Console.ReadLine();
         if (string.IsNullOrWhiteSpace(name)) name = "World";
         Console.WriteLine("Hello, " + name.Trim() + "!");
     }
 }`,
     php: String.raw`<?php
+echo "Enter your name: ";
 $name = trim(stream_get_contents(STDIN));
 if ($name === "") $name = "World";
 echo "Hello, " . $name . "!\n";
 ?>`,
-    ruby: String.raw`name = STDIN.gets&.strip
+    ruby: String.raw`print "Enter your name: "
+name = STDIN.gets&.strip
 name = "World" if name.nil? || name.empty?
 puts "Hello, #{name}!"`,
     go: String.raw`package main
@@ -357,6 +373,7 @@ import (
     "strings"
 )
 func main() {
+    fmt.Print("Enter your name: ")
     reader := bufio.NewReader(os.Stdin)
     name, _ := reader.ReadString('\n')
     name = strings.TrimSpace(name)
@@ -365,8 +382,10 @@ func main() {
     }
     fmt.Printf("Hello, %s!\n", name)
 }`,
-    rust: String.raw`use std::io::{self, BufRead};
+    rust: String.raw`use std::io::{self, BufRead, Write};
 fn main() {
+    print!("Enter your name: ");
+    io::stdout().flush().unwrap();
     let stdin = io::stdin();
     let mut name = String::new();
     if let Ok(n) = stdin.lock().read_line(&mut name) {
@@ -379,42 +398,51 @@ fn main() {
     println!("Hello, {}!", name.trim());
 }`,
     kotlin: String.raw`fun main() {
+    print("Enter your name: ")
     var name = readLine()?.trim() ?: "World"
     if (name.isEmpty()) name = "World"
     println("Hello, $name!")
 }`,
     swift: String.raw`import Foundation
-var name =readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "World"
-if name.isEmpty { name = "World" }
+print("Enter your name: ", terminator: "")
+let input = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+let name = input.isEmpty ? "World" : input
 print("Hello, \(name)!")`,
     dart: String.raw`import 'dart:io';
 void main() {
-    String? name = stdin.readLineSync();
-    if (name == null || name.trim().isEmpty) {
-        name = 'World';
-    }
-    print('Hello, ${name.trim()}!');
+    stdout.write("Enter your name: ");
+    String? input = stdin.readLineSync();
+    String name = (input == null || input.trim().isEmpty) ? 'World' : input.trim();
+    print('Hello, $name!');
 }`,
-    bash: String.raw`read -r name
+    bash: String.raw`printf "Enter your name: "
+read -r name
 if [ -z "$name" ]; then
     name="World"
 fi
 echo "Hello, $name!"`,
-    lua: String.raw`local name = io.read("*l")
+    lua: String.raw`io.write("Enter your name: ")
+local name = io.read("*l")
 if not name or name == "" then
     name = "World"
 end
 print("Hello, " .. name .. "!")`,
     scala: String.raw`object Main extends App {
+    print("Enter your name: ")
     val name = scala.io.StdIn.readLine()
     val finalName = if (name == null || name.trim.isEmpty) "World" else name.trim
     println(s"Hello, $finalName!")
 }`,
-    haskell: String.raw`main = do
+    haskell: String.raw`import System.IO
+main = do
+    putStr "Enter your name: "
+    hFlush stdout
     input <- getLine
     let name = if null (filter (/= ' ') input) then "World" else input
     putStrLn ("Hello, " ++ name ++ "!")`,
-    clojure: String.raw`(let [name (read-line)]
+    clojure: String.raw`(print "Enter your name: ")
+(flush)
+(let [name (read-line)]
   (let [n (if (or (nil? name) (empty? (.trim name))) "World" (.trim name))]
     (println (str "Hello, " n "!"))))`,
     sql: String.raw`CREATE TABLE students (id INT, name TEXT);
