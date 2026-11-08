@@ -135,8 +135,8 @@
 
       <!-- Input / Output -->
       <div id="tab-io" class="tabpanel active">
-        <label for="stdin">Standard Input (STDIN - Optional)</label>
-        <textarea id="stdin" placeholder="Optional manual inputs..."></textarea>
+        <label for="stdin">Standard Input (STDIN)</label>
+        <textarea id="stdin" placeholder="Enter input here (e.g. rohan)..."></textarea>
         <div class="row">
           <span class="hint">Run with the button or press Ctrl + Enter</span>
         </div>
@@ -254,7 +254,7 @@
     return e;
   }
 
-  // ---------- Comprehensive Languages List (Judge0 CE IDs + Clean Self-Contained Templates) ----------
+  // ---------- Comprehensive Languages List (Judge0 CE IDs + STDIN-Reading Templates) ----------
   var LANGS = {
     html:       { name: 'HTML / Web',   id: null, monaco: 'html',       file: 'index.html' },
     c:          { name: 'C',            id: 50,   monaco: 'c',          file: 'main.c' },
@@ -284,82 +284,141 @@
   var TEMPLATES = {
     html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }\n    h1 { color: #007acc; }\n  </style>\n</head>\n<body>\n  <h1>Hello from PolyCode Web Preview!</h1>\n</body>\n</html>`,
     c: String.raw`#include <stdio.h>
+#include <string.h>
 int main() {
-    char name[] = "PolyCoder";
+    char name[50];
+    if (fgets(name, sizeof(name), stdin) != NULL) {
+        name[strcspn(name, "\r\n")] = 0;
+        if (strlen(name) == 0) strcpy(name, "World");
+    } else {
+        strcpy(name, "World");
+    }
     printf("Hello, %s!\n", name);
     return 0;
 }`,
     cpp: String.raw`#include <iostream>
+#include <string>
 using namespace std;
 int main() {
-    string name = "PolyCoder";
+    string name;
+    if (!(getline(cin, name)) || name.empty()) {
+        name = "World";
+    }
     cout << "Hello, " << name << "!" << endl;
     return 0;
 }`,
-    python: String.raw`name = "PolyCoder"
+    python: String.raw`import sys
+name = sys.stdin.read().strip()
+if not name:
+    name = "World"
 print(f"Hello, {name}!")`,
-    java: String.raw`public class Main {
+    java: String.raw`import java.util.Scanner;
+public class Main {
     public static void main(String[] args) {
-        String name = "PolyCoder";
+        Scanner scanner = new Scanner(System.in);
+        String name = scanner.hasNextLine() ? scanner.nextLine().trim() : "World";
+        if (name.isEmpty()) name = "World";
         System.out.println("Hello, " + name + "!");
     }
 }`,
-    javascript: String.raw`const name = "PolyCoder";
-console.log("Hello, " + name + "!");`,
-    typescript: String.raw`const name: string = "PolyCoder";
-console.log("Hello, " + name + "!");`,
-    julia: String.raw`name = "PolyCoder"
+    javascript: String.raw`const name = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+console.log('Hello, ' + name + '!');`,
+    typescript: String.raw`const name: string = require('fs').readFileSync(0, 'utf8').trim() || 'World';
+console.log('Hello, ' + name + '!');`,
+    julia: String.raw`name = strip(readline(stdin))
+if isempty(name)
+    name = "World"
+end
 println("Hello, $name!")`,
-    r: String.raw`name <- "PolyCoder"
+    r: String.raw`name <- trimws(readLines("stdin", n=1, warn=FALSE))
+if (length(name) == 0 || name == "") name <- "World"
 cat(paste0("Hello, ", name, "!\n"))`,
     csharp: String.raw`using System;
 class Program {
     static void Main() {
-        string name = "PolyCoder";
-        Console.WriteLine("Hello, " + name + "!");
+        string name = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(name)) name = "World";
+        Console.WriteLine("Hello, " + name.Trim() + "!");
     }
 }`,
     php: String.raw`<?php
-$name = "PolyCoder";
+$name = trim(stream_get_contents(STDIN));
+if ($name === "") $name = "World";
 echo "Hello, " . $name . "!\n";
 ?>`,
-    ruby: String.raw`name = "PolyCoder"
+    ruby: String.raw`name = STDIN.gets&.strip
+name = "World" if name.nil? || name.empty?
 puts "Hello, #{name}!"`,
     go: String.raw`package main
-import "fmt"
+import (
+    "bufio"
+    "fmt"
+    "os"
+    "strings"
+)
 func main() {
-    name := "PolyCoder"
+    reader := bufio.NewReader(os.Stdin)
+    name, _ := reader.ReadString('\n')
+    name = strings.TrimSpace(name)
+    if name == "" {
+        name = "World"
+    }
     fmt.Printf("Hello, %s!\n", name)
 }`,
-    rust: String.raw`fn main() {
-    let name = "PolyCoder";
-    println!("Hello, {}!", name);
+    rust: String.raw`use std::io::{self, BufRead};
+fn main() {
+    let stdin = io::stdin();
+    let mut name = String::new();
+    if let Ok(n) = stdin.lock().read_line(&mut name) {
+        if n == 0 || name.trim().is_empty() {
+            name = String::from("World");
+        }
+    } else {
+        name = String::from("World");
+    }
+    println!("Hello, {}!", name.trim());
 }`,
     kotlin: String.raw`fun main() {
-    val name = "PolyCoder"
+    var name = readLine()?.trim() ?: "World"
+    if (name.isEmpty()) name = "World"
     println("Hello, $name!")
 }`,
-    swift: String.raw`let name = "PolyCoder"
+    swift: String.raw`import Foundation
+var name =readLine()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "World"
+if name.isEmpty { name = "World" }
 print("Hello, \(name)!")`,
-    dart: String.raw`void main() {
-    String name = 'PolyCoder';
-    print('Hello, $name!');
+    dart: String.raw`import 'dart:io';
+void main() {
+    String? name = stdin.readLineSync();
+    if (name == null || name.trim().isEmpty) {
+        name = 'World';
+    }
+    print('Hello, ${name.trim()}!');
 }`,
-    bash: String.raw`name="PolyCoder"
+    bash: String.raw`read -r name
+if [ -z "$name" ]; then
+    name="World"
+fi
 echo "Hello, $name!"`,
-    lua: String.raw`local name = "PolyCoder"
+    lua: String.raw`local name = io.read("*l")
+if not name or name == "" then
+    name = "World"
+end
 print("Hello, " .. name .. "!")`,
     scala: String.raw`object Main extends App {
-    val name = "PolyCoder"
-    println(s"Hello, $name!")
+    val name = scala.io.StdIn.readLine()
+    val finalName = if (name == null || name.trim.isEmpty) "World" else name.trim
+    println(s"Hello, $finalName!")
 }`,
     haskell: String.raw`main = do
-    let name = "PolyCoder"
+    input <- getLine
+    let name = if null (filter (/= ' ') input) then "World" else input
     putStrLn ("Hello, " ++ name ++ "!")`,
-    clojure: String.raw`(let [name "PolyCoder"]
-  (println (str "Hello, " name "!")))`,
+    clojure: String.raw`(let [name (read-line)]
+  (let [n (if (or (nil? name) (empty? (.trim name))) "World" (.trim name))]
+    (println (str "Hello, " n "!"))))`,
     sql: String.raw`CREATE TABLE students (id INT, name TEXT);
-INSERT INTO students VALUES (1, 'PolyCoder');
+INSERT INTO students VALUES (1, 'Rohan');
 SELECT * FROM students;`
   };
 
@@ -446,7 +505,7 @@ SELECT * FROM students;`
     }
   });
 
-  $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', '');
+  $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', 'Rohan');
   document.documentElement.setAttribute('data-theme', theme);
   $('stdin').addEventListener('input', function () { store.set('stdin', $('stdin').value); });
 
@@ -512,7 +571,6 @@ SELECT * FROM students;`
     return 'Network error: could not connect to the execution server.';
   }
 
-  // Trimmed output rendering ensuring clean string display
   function renderOutput(res) {
     var sl = $('statusLine'), out = $('output');
     sl.textContent = ''; out.textContent = '';
