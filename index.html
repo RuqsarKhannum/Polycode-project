@@ -8,19 +8,11 @@
 <meta name="theme-color" content="#1e1e1e">
 <style>
   /* Square background */
-  .bg-square {
-    border-radius: 0px;
-  }
-
+  .bg-square { border-radius: 0px; }
   /* Rounded background */
-  .bg-rounded {
-    border-radius: 12px;
-  }
-
+  .bg-rounded { border-radius: 12px; }
   /* Circle background */
-  .bg-circle {
-    border-radius: 50%;
-  }
+  .bg-circle { border-radius: 50%; }
 
   :root[data-theme="dark"] {
     --bg:#1e1e1e; --panel:#252526; --panel2:#2d2d2d; --text:#e6e6e6; --muted:#9a9a9a;
@@ -83,14 +75,14 @@
   .aiout { margin-top:10px; font-size:14px; line-height:1.5; }
   .aiout .prose { white-space:pre-wrap; margin:6px 0; }
   .aiout pre { background:var(--out-bg); border:1px solid var(--border); border-radius:6px; padding:10px; overflow:auto;
-               font-family:Consolas, monospace; font-size:13px; margin:6px 0 0; }
+                font-family:Consolas, monospace; font-size:13px; margin:6px 0 0; }
   .aiout .codebtns { display:flex; gap:6px; margin:4px 0 10px; }
   .aiout .codebtns button { padding:4px 8px; font-size:12px; }
   dialog { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:10px; max-width:460px; width:92%; }
   dialog::backdrop { background:rgba(0,0,0,.55); }
   dialog input { width:100%; padding:8px; margin-bottom:10px; }
   #toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--accent); color:#fff;
-           padding:8px 16px; border-radius:20px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; }
+            padding:8px 16px; border-radius:20px; font-size:13px; opacity:0; pointer-events:none; transition:opacity .25s; }
   #toast.show { opacity:1; }
   @media (max-width: 900px) {
     .app { grid-template-columns:1fr; height:auto; }
@@ -240,15 +232,15 @@
 
   // ---------- languages (Judge0 CE ids) ----------
   var LANGS = {
-    c:          { name: 'C',          id: 50, monaco: 'c',         file: 'main.c' },
-    cpp:        { name: 'C++',        id: 54, monaco: 'cpp',       file: 'main.cpp' },
-    python:     { name: 'Python',     id: 71, monaco: 'python',    file: 'main.py' },
+    c:          { name: 'C',          id: 50, monaco: 'c',          file: 'main.c' },
+    cpp:        { name: 'C++',        id: 54, monaco: 'cpp',        file: 'main.cpp' },
+    python:     { name: 'Python',     id: 71, monaco: 'python',     file: 'main.py' },
     javascript: { name: 'JavaScript', id: 63, monaco: 'javascript', file: 'main.js' },
     typescript: { name: 'TypeScript', id: 74, monaco: 'typescript', file: 'main.ts' },
-    java:       { name: 'Java',       id: 62, monaco: 'java',      file: 'Main.java' },
-    go:         { name: 'Go',         id: 60, monaco: 'go',        file: 'main.go' },
-    rust:       { name: 'Rust',       id: 73, monaco: 'rust',      file: 'main.rs' },
-    kotlin:     { name: 'Kotlin',     id: 78, monaco: 'kotlin',    file: 'main.kt' },
+    java:       { name: 'Java',       id: 62, monaco: 'java',       file: 'Main.java' },
+    go:         { name: 'Go',         id: 60, monaco: 'go',         file: 'main.go' },
+    rust:       { name: 'Rust',       id: 73, monaco: 'rust',       file: 'main.rs' },
+    kotlin:     { name: 'Kotlin',     id: 78, monaco: 'kotlin',     file: 'main.kt' },
     sql:        { name: 'SQL (SQLite)', id: 82, monaco: 'sql',      file: 'query.sql' }
   };
 
@@ -297,7 +289,7 @@ func main() {
     var name string
     fmt.Print("Enter your name: ")
     fmt.Scan(&name)
-    fmt.Printf("Hello, %s!\n", name)
+    fmt.Printf("Hello, %s!\n", name);
 }`,
     rust: String.raw`use std::io::{self, Write};
 
@@ -663,6 +655,7 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
       return (j.content || []).filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
     });
   }
+
   function renderAI(text, allowInsert) {
     var box = $('aiOut'); box.textContent = '';
     var parts = text.split(/```[^\n]*\n([\s\S]*?)```/);
@@ -675,65 +668,45 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
       copy.addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText(code).then(function () { toast('Copied'); }); });
       btns.appendChild(copy);
       if (allowInsert) {
-        var use = el('button', '', 'Use in editor');
-        use.addEventListener('click', function () { editor.setValue(code); showTab('io'); toast('Code replaced'); });
-        btns.appendChild(use);
+        var useBtn = el('button', 'primary', 'Use in editor');
+        useBtn.addEventListener('click', function () {
+          if (editor) editor.setValue(code);
+          toast('Code inserted');
+        });
+        btns.appendChild(useBtn);
       }
       box.appendChild(btns);
     });
   }
-  function aiRun(prompt, allowInsert) {
-    showTab('ai');
-    var box = $('aiOut'); box.textContent = 'Thinking...';
-    callClaude(prompt).then(function (text) {
-      renderAI(text, allowInsert);
-    }).catch(function (err) {
-      box.textContent = err.message || 'AI request failed.';
-    });
-  }
-  $('aiErrBtn').addEventListener('click', function () {
-    if (!lastRun) { toast('Run code with an error first'); return; }
-    var r = lastRun.res;
-    aiRun('Explain this error and how to fix it in my ' + LANGS[lastRun.lang].name + ' code:\n\n' +
-          (r.compile || r.stderr || r.message || r.status), false);
-  });
-  $('aiExplainBtn').addEventListener('click', function () {
-    aiRun('Explain what this ' + LANGS[currentLang].name + ' code does step by step:\n\n```\n' + editor.getValue() + '\n```', false);
-  });
-  $('aiConvBtn').addEventListener('click', function () {
-    var target = convTarget.value;
-    if (target === currentLang) { toast('Choose a different target language'); return; }
-    aiRun('Convert this ' + LANGS[currentLang].name + ' code to idiomatic ' + LANGS[target].name + '.\nReturn only the code inside a code block, with a short explanation.\n\n```\n' + editor.getValue() + '\n```', true);
-  });
 
-  // ---------- Monaco loader ----------
-  require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+  // ---------- Monaco Editor Initialization ----------
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
   require(['vs/editor/editor.main'], function () {
+    var initCode = (shared && typeof shared.c === 'string') ? shared.c : store.get('code.' + currentLang, TEMPLATES[currentLang]);
     editor = monaco.editor.create($('editor'), {
-      value: store.get('code.' + currentLang, TEMPLATES[currentLang]),
+      value: initCode,
       language: LANGS[currentLang].monaco,
       theme: theme === 'dark' ? 'vs-dark' : 'vs',
       fontSize: fontSize,
+      minimap: { enabled: false },
       automaticLayout: true,
-      minimap: { enabled: false }
+      scrollBeyondLastLine: false
     });
+
+    // Enable the run button once editor finishes mounting
+    $('runBtn').disabled = false;
+    $('output').textContent = 'Ready.';
+
     editor.onDidChangeModelContent(function () {
       if (suppressSave) return;
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(saveNow, 400);
+      saveTimer = setTimeout(saveNow, 1000);
     });
+
     renderTests();
   });
+
 })();
-</script>
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('Service Worker registered!'))
-        .catch(err => console.error('Service Worker error:', err));
-    });
-  }
 </script>
 </body>
 </html>
