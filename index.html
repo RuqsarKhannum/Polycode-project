@@ -4,7 +4,24 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>PolyCode - Online Code Runner</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1e1e1e">
 <style>
+  /* Square background */
+  .bg-square {
+    border-radius: 0px;
+  }
+
+  /* Rounded background */
+  .bg-rounded {
+    border-radius: 12px;
+  }
+
+  /* Circle background */
+  .bg-circle {
+    border-radius: 50%;
+  }
+
   :root[data-theme="dark"] {
     --bg:#1e1e1e; --panel:#252526; --panel2:#2d2d2d; --text:#e6e6e6; --muted:#9a9a9a;
     --border:#3c3c3c; --accent:#007acc; --accent-h:#0a8fe6; --ok:#3fb950; --bad:#f85149;
@@ -223,15 +240,15 @@
 
   // ---------- languages (Judge0 CE ids) ----------
   var LANGS = {
-    c:          { name: 'C',          id: 50, monaco: 'c',          file: 'main.c' },
-    cpp:        { name: 'C++',        id: 54, monaco: 'cpp',        file: 'main.cpp' },
-    python:     { name: 'Python',     id: 71, monaco: 'python',     file: 'main.py' },
+    c:          { name: 'C',          id: 50, monaco: 'c',         file: 'main.c' },
+    cpp:        { name: 'C++',        id: 54, monaco: 'cpp',       file: 'main.cpp' },
+    python:     { name: 'Python',     id: 71, monaco: 'python',    file: 'main.py' },
     javascript: { name: 'JavaScript', id: 63, monaco: 'javascript', file: 'main.js' },
     typescript: { name: 'TypeScript', id: 74, monaco: 'typescript', file: 'main.ts' },
-    java:       { name: 'Java',       id: 62, monaco: 'java',       file: 'Main.java' },
-    go:         { name: 'Go',         id: 60, monaco: 'go',         file: 'main.go' },
-    rust:       { name: 'Rust',       id: 73, monaco: 'rust',       file: 'main.rs' },
-    kotlin:     { name: 'Kotlin',     id: 78, monaco: 'kotlin',     file: 'main.kt' },
+    java:       { name: 'Java',       id: 62, monaco: 'java',      file: 'Main.java' },
+    go:         { name: 'Go',         id: 60, monaco: 'go',        file: 'main.go' },
+    rust:       { name: 'Rust',       id: 73, monaco: 'rust',      file: 'main.rs' },
+    kotlin:     { name: 'Kotlin',     id: 78, monaco: 'kotlin',    file: 'main.kt' },
     sql:        { name: 'SQL (SQLite)', id: 82, monaco: 'sql',      file: 'query.sql' }
   };
 
@@ -634,7 +651,7 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
         'anthropic-dangerous-direct-browser-access': 'true'
       },
       body: JSON.stringify({ model: store.get('model', MODEL_DEFAULT), max_tokens: 2000, system: AI_SYSTEM,
-                             messages: [{ role: 'user', content: prompt }] })
+                            messages: [{ role: 'user', content: prompt }] })
     }).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function (j) {
@@ -667,94 +684,56 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
   }
   function aiRun(prompt, allowInsert) {
     showTab('ai');
-    $('aiOut').textContent = 'Thinking...';
-    return callClaude(prompt).then(function (text) { renderAI(text, allowInsert); return text; })
-      .catch(function (err) { $('aiOut').textContent = err.message; return null; });
+    var box = $('aiOut'); box.textContent = 'Thinking...';
+    callClaude(prompt).then(function (text) {
+      renderAI(text, allowInsert);
+    }).catch(function (err) {
+      box.textContent = err.message || 'AI request failed.';
+    });
   }
-  function explainError() {
-    if (!lastRun) { showTab('ai'); $('aiOut').textContent = 'Run your code first, then ask me to explain the error.'; return; }
-    var r = lastRun.res, errText = [r.compile, r.stderr, r.message].filter(Boolean).join('\n') || r.status;
-    if (r.statusId === 3 && !r.stderr) { showTab('ai'); $('aiOut').textContent = 'The last run finished successfully, so there is no error to explain.'; return; }
-    aiRun('The following ' + LANGS[lastRun.lang].name + ' program failed.\n\nCode:\n```\n' + lastRun.code +
-      '\n```\n\nSTDIN:\n```\n' + lastRun.stdin + '\n```\n\nStatus: ' + r.status + '\nError output:\n```\n' + errText +
-      '\n```\n\nExplain in simple words what went wrong and which line causes it, then show the corrected full program in one code block.', true);
-  }
-  $('aiErrBtn').addEventListener('click', explainError);
-  $('explainBtn').addEventListener('click', explainError);
+  $('aiErrBtn').addEventListener('click', function () {
+    if (!lastRun) { toast('Run code with an error first'); return; }
+    var r = lastRun.res;
+    aiRun('Explain this error and how to fix it in my ' + LANGS[lastRun.lang].name + ' code:\n\n' +
+          (r.compile || r.stderr || r.message || r.status), false);
+  });
   $('aiExplainBtn').addEventListener('click', function () {
-    aiRun('Explain this ' + LANGS[currentLang].name + ' program step by step for a beginner. Mention its time complexity if relevant and one possible improvement.\n\n```\n' +
-      editor.getValue() + '\n```', false);
+    aiRun('Explain what this ' + LANGS[currentLang].name + ' code does step by step:\n\n```\n' + editor.getValue() + '\n```', false);
   });
   $('aiConvBtn').addEventListener('click', function () {
     var target = convTarget.value;
-    if (target === currentLang) { toast('Pick a different language'); return; }
-    aiRun('Convert this ' + LANGS[currentLang].name + ' program to ' + LANGS[target].name +
-      '. Keep the same behaviour, including reading from standard input and the same output format. ' +
-      (target === 'java' ? 'The public class must be named Main. ' : '') +
-      'Reply with ONE fenced code block containing the full program, then at most 3 short notes.\n\n```\n' + editor.getValue() + '\n```', false)
-    .then(function (text) {
-      if (!text) return;
-      var m = text.match(/```[^\n]*\n([\s\S]*?)```/);
-      if (!m) return;
-      var code = m[1].replace(/\n$/, '');
-      var btn = el('button', 'primary', 'Open in ' + LANGS[target].name + ' (saves it)');
-      btn.style.marginTop = '8px';
-      btn.addEventListener('click', function () {
-        var existing = store.get('code.' + target, '');
-        if (existing && existing !== TEMPLATES[target] && !confirm('Replace your saved ' + LANGS[target].name + ' code?')) return;
-        store.set('code.' + target, code); switchLang(target); showTab('io'); toast('Converted code opened');
-      });
-      $('aiOut').appendChild(btn);
-    });
+    if (target === currentLang) { toast('Choose a different target language'); return; }
+    aiRun('Convert this ' + LANGS[currentLang].name + ' code to idiomatic ' + LANGS[target].name + '.\nReturn only the code inside a code block, with a short explanation.\n\n```\n' + editor.getValue() + '\n```', true);
   });
 
-  // ---------- start Monaco ----------
-  renderTests();
-  if (typeof require === 'undefined') {
-    $('output').textContent = 'Could not load the code editor. Check your internet connection and reload.';
-    return;
-  }
-  // lets Monaco start its helper worker even from another domain (CDN)
-  window.MonacoEnvironment = {
-    getWorkerUrl: function () {
-      return 'data:text/javascript;charset=utf-8,' + encodeURIComponent(
-        "self.MonacoEnvironment={baseUrl:'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/'};" +
-        "importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');");
-    }
-  };
-  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
+  // ---------- Monaco loader ----------
+  require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
   require(['vs/editor/editor.main'], function () {
-    var startCode = (shared && typeof shared.c === 'string') ? shared.c : store.get('code.' + currentLang, TEMPLATES[currentLang]);
     editor = monaco.editor.create($('editor'), {
-      value: startCode, language: LANGS[currentLang].monaco,
+      value: store.get('code.' + currentLang, TEMPLATES[currentLang]),
+      language: LANGS[currentLang].monaco,
       theme: theme === 'dark' ? 'vs-dark' : 'vs',
-      fontSize: fontSize, minimap: { enabled: false }, automaticLayout: true,
-      scrollBeyondLastLine: false, tabSize: 4, wordWrap: 'on'
+      fontSize: fontSize,
+      automaticLayout: true,
+      minimap: { enabled: false }
     });
     editor.onDidChangeModelContent(function () {
       if (suppressSave) return;
-      clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 400);
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(saveNow, 400);
     });
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, runMain);
-    $('runBtn').disabled = false;
-    $('output').textContent = 'Click "Run" to see output...';
-    if (shared) toast('Loaded shared code');
+    renderTests();
   });
 })();
-/* Square background */
-.bg-square {
-  border-radius: 0px;
-}
-
-/* Rounded background */
-.bg-rounded {
-  border-radius: 12px;
-}
-
-/* Circle background */
-.bg-circle {
-  border-radius: 50%;
-}
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('Service Worker registered!'))
+        .catch(err => console.error('Service Worker error:', err));
+    });
+  }
 </script>
 </body>
 </html>
