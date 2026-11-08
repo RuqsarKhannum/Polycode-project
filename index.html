@@ -7,13 +7,6 @@
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1e1e1e">
 <style>
-  /* Square background */
-  .bg-square { border-radius: 0px; }
-  /* Rounded background */
-  .bg-rounded { border-radius: 12px; }
-  /* Circle background */
-  .bg-circle { border-radius: 50%; }
-
   :root[data-theme="dark"] {
     --bg:#1e1e1e; --panel:#252526; --panel2:#2d2d2d; --text:#e6e6e6; --muted:#9a9a9a;
     --border:#3c3c3c; --accent:#007acc; --accent-h:#0a8fe6; --ok:#3fb950; --bad:#f85149;
@@ -41,6 +34,17 @@
   button:disabled { opacity:.5; cursor:not-allowed; }
   button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; padding:8px 18px; }
   button.primary:hover:not(:disabled) { background:var(--accent-h); }
+
+  /* Custom Searchable Select Dropdown */
+  .lang-select-container { position: relative; display: inline-block; }
+  .lang-select-btn { background: var(--panel2); color: var(--text); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; text-align: left; min-width: 150px; display: flex; justify-content: space-between; align-items: center; }
+  .lang-dropdown-menu { display: none; position: absolute; top: 105%; left: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); z-index: 1000; width: 220px; max-height: 300px; flex-direction: column; }
+  .lang-dropdown-menu.show { display: flex; }
+  .lang-search-input { width: 100%; padding: 8px; border: none; border-bottom: 1px solid var(--border); background: var(--panel2); color: var(--text); outline: none; border-radius: 6px 6px 0 0; }
+  .lang-options-list { overflow-y: auto; max-height: 240px; }
+  .lang-option-item { padding: 8px 12px; cursor: pointer; font-size: 14px; }
+  .lang-option-item:hover, .lang-option-item.selected { background: var(--accent); color: #fff; }
+
   .app { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:14px; height:calc(100vh - 90px); min-height:520px; }
   .pane { background:var(--panel); border:1px solid var(--border); border-radius:8px; overflow:hidden; display:flex; flex-direction:column; min-height:0; }
   #editor { flex:1; min-height:300px; }
@@ -96,9 +100,17 @@
 <div class="wrap">
   <header>
     <h1>🚀 PolyCode</h1>
-    <span class="sub">Run code in 10 languages &middot; test cases &middot; benchmark &middot; AI helper</span>
+    <span class="sub">Run code in 25+ languages &middot; test cases &middot; benchmark &middot; AI helper</span>
     <div class="toolbar">
-      <select id="language" title="Language"></select>
+      <!-- Searchable Language Selector Dropdown -->
+      <div class="lang-select-container">
+        <button id="langSelectBtn" class="lang-select-btn"><span>Select Language</span> ▾</button>
+        <div id="langDropdownMenu" class="lang-dropdown-menu">
+          <input type="text" id="langSearchInput" class="lang-search-input" placeholder="🔍 Search language...">
+          <div id="langOptionsList" class="lang-options-list"></div>
+        </div>
+      </div>
+
       <button id="runBtn" class="primary" disabled>▶ Run</button>
       <button id="shareBtn" title="Copy a link to this code">🔗 Share</button>
       <button id="downloadBtn" title="Download the code file">⬇ Download</button>
@@ -143,13 +155,13 @@
           <button id="runTestsBtn" class="primary">▶ Run all tests</button>
           <strong id="testSummary"></strong>
         </div>
-        <p class="hint">Each test sends the input to your code and compares the output with the expected output (extra spaces at line ends are ignored). Tests are shared by all languages.</p>
+        <p class="hint">Each test sends the input to your code and compares the output with the expected output.</p>
         <div id="testList"></div>
       </div>
 
       <!-- Benchmark -->
       <div id="tab-bench" class="tabpanel">
-        <p class="hint">Compare the same program written in different languages. It runs the code you saved in every language you edited (or converted with AI), using the STDIN from the first tab. Time is the program's run time reported by the server.</p>
+        <p class="hint">Compare the same program written in different languages using STDIN.</p>
         <div class="row">
           <button id="benchBtn" class="primary">▶ Run benchmark</button>
           <span id="benchStatus" class="hint"></span>
@@ -159,7 +171,7 @@
 
       <!-- AI -->
       <div id="tab-ai" class="tabpanel">
-        <p class="hint">Needs your own Anthropic API key (⚙ AI key). The key stays in this browser.</p>
+        <p class="hint">Needs your own Anthropic API key (⚙ AI key).</p>
         <div class="row">
           <button id="aiErrBtn">✨ Explain last error</button>
           <button id="aiExplainBtn">✨ Explain my code</button>
@@ -181,7 +193,7 @@
   <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
   <label for="modelName">Model</label>
   <input id="modelName" type="text">
-  <p class="hint">Your key is saved only in this browser (localStorage) and is sent only to api.anthropic.com. Do not put a key in a page that other people will use. For a public site, call the API from your own backend instead.</p>
+  <p class="hint">Your key is saved only in this browser (localStorage) and is sent only to api.anthropic.com.</p>
   <div class="row">
     <button id="saveKeyBtn" class="primary">Save</button>
     <button id="removeKeyBtn">Remove key</button>
@@ -209,7 +221,6 @@
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
 
-  // ---------- small helpers ----------
   var store = {
     get: function (k, d) { try { var v = localStorage.getItem('polycode.' + k); return v === null ? d : v; } catch (e) { return d; } },
     set: function (k, v) { try { localStorage.setItem('polycode.' + k, v); } catch (e) {} },
@@ -243,90 +254,97 @@
     return e;
   }
 
-  // ---------- languages (Judge0 CE ids) ----------
+  // ---------- Comprehensive Languages List (Judge0 CE IDs + HTML Preview) ----------
   var LANGS = {
-    c:          { name: 'C',          id: 50, monaco: 'c',          file: 'main.c' },
-    cpp:        { name: 'C++',        id: 54, monaco: 'cpp',        file: 'main.cpp' },
-    python:     { name: 'Python',     id: 71, monaco: 'python',     file: 'main.py' },
-    javascript: { name: 'JavaScript', id: 63, monaco: 'javascript', file: 'main.js' },
-    typescript: { name: 'TypeScript', id: 74, monaco: 'typescript', file: 'main.ts' },
-    java:       { name: 'Java',       id: 62, monaco: 'java',       file: 'Main.java' },
-    go:         { name: 'Go',         id: 60, monaco: 'go',         file: 'main.go' },
-    rust:       { name: 'Rust',       id: 73, monaco: 'rust',       file: 'main.rs' },
-    kotlin:     { name: 'Kotlin',     id: 78, monaco: 'kotlin',     file: 'main.kt' },
-    sql:        { name: 'SQL (SQLite)', id: 82, monaco: 'sql',      file: 'query.sql' }
+    html:       { name: 'HTML / Web',   id: null, monaco: 'html',       file: 'index.html' },
+    c:          { name: 'C',            id: 50,   monaco: 'c',          file: 'main.c' },
+    cpp:        { name: 'C++',          id: 54,   monaco: 'cpp',        file: 'main.cpp' },
+    python:     { name: 'Python',       id: 71,   monaco: 'python',     file: 'main.py' },
+    java:       { name: 'Java',         id: 62,   monaco: 'java',       file: 'Main.java' },
+    javascript: { name: 'JavaScript',   id: 63,   monaco: 'javascript', file: 'main.js' },
+    typescript: { name: 'TypeScript',   id: 74,   monaco: 'typescript', file: 'main.ts' },
+    julia:      { name: 'Julia',        id: 68,   monaco: 'julia',      file: 'main.jl' },
+    r:          { name: 'R',            id: 80,   monaco: 'r',          file: 'main.r' },
+    csharp:     { name: 'C# (.NET)',    id: 51,   monaco: 'csharp',     file: 'Program.cs' },
+    php:        { name: 'PHP',          id: 68,   monaco: 'php',        file: 'main.php' },
+    ruby:       { name: 'Ruby',         id: 72,   monaco: 'ruby',       file: 'main.rb' },
+    go:         { name: 'Go',           id: 60,   monaco: 'go',         file: 'main.go' },
+    rust:       { name: 'Rust',         id: 73,   monaco: 'rust',       file: 'main.rs' },
+    kotlin:     { name: 'Kotlin',       id: 78,   monaco: 'kotlin',     file: 'main.kt' },
+    swift:      { name: 'Swift',        id: 83,   monaco: 'swift',      file: 'main.swift' },
+    dart:       { name: 'Dart',         id: 90,   monaco: 'dart',       file: 'main.dart' },
+    bash:       { name: 'Bash / Shell', id: 46,   monaco: 'shell',      file: 'script.sh' },
+    lua:        { name: 'Lua',          id: 64,   monaco: 'lua',        file: 'main.lua' },
+    scala:      { name: 'Scala',        id: 81,   monaco: 'scala',      file: 'Main.scala' },
+    haskell:    { name: 'Haskell',      id: 61,   monaco: 'haskell',    file: 'main.hs' },
+    clojure:    { name: 'Clojure',      id: 86,   monaco: 'clojure',    file: 'main.clj' },
+    sql:        { name: 'SQL (SQLite)', id: 82,   monaco: 'sql',        file: 'query.sql' }
   };
 
   var TEMPLATES = {
+    html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }\n    h1 { color: #007acc; }\n  </style>\n</head>\n<body>\n  <h1>Hello from PolyCode Web Preview!</h1>\n  <p>Edit this code to see live preview updates.</p>\n</body>\n</html>`,
     c: String.raw`#include <stdio.h>
-
 int main() {
-    char name[50];
-    printf("Enter your name: ");
-    scanf("%s", name);
-    printf("Hello, %s!\n", name);
+    printf("Hello from C!\n");
     return 0;
 }`,
     cpp: String.raw`#include <iostream>
 using namespace std;
-
 int main() {
-    string name;
-    cout << "Enter your name: ";
-    cin >> name;
-    cout << "Hello, " << name << "!" << endl;
+    cout << "Hello from C++!" << endl;
     return 0;
 }`,
-    python: String.raw`name = input("Enter your name: ")
-print(f"Hello, {name}!")`,
-    javascript: String.raw`const lines = require('fs').readFileSync('/dev/stdin', 'utf8').split('\n');
-const name = lines[0] || 'World';
-console.log('Hello, ' + name + '!');`,
-    typescript: String.raw`const message: string = "Hello from TypeScript!";
-console.log(message);`,
-    java: String.raw`import java.util.Scanner;
-
-public class Main {
+    python: String.raw`print("Hello from Python!")`,
+    java: String.raw`public class Main {
     public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
-        System.out.print("Enter your name: ");
-        String name = scanner.nextLine();
-        System.out.println("Hello, " + name + "!");
+        System.out.println("Hello from Java!");
     }
 }`,
-    go: String.raw`package main
-
-import "fmt"
-
-func main() {
-    var name string
-    fmt.Print("Enter your name: ")
-    fmt.Scan(&name)
-    fmt.Printf("Hello, %s!\n", name);
+    javascript: String.raw`console.log("Hello from JavaScript!");`,
+    typescript: String.raw`const msg: string = "Hello from TypeScript!";
+console.log(msg);`,
+    julia: String.raw`println("Hello from Julia!")`,
+    r: String.raw`cat("Hello from R!\n")`,
+    csharp: String.raw`using System;
+class Program {
+    static void Main() {
+        Console.WriteLine("Hello from C#!");
+    }
 }`,
-    rust: String.raw`use std::io::{self, Write};
-
-fn main() {
-    print!("Enter your name: ");
-    io::stdout().flush().unwrap();
-    let mut name = String::new();
-    io::stdin().read_line(&mut name).unwrap();
-    println!("Hello, {}!", name.trim());
+    php: String.raw`<?php
+echo "Hello from PHP!\n";
+?>`,
+    ruby: String.raw`puts "Hello from Ruby!"`,
+    go: String.raw`package main
+import "fmt"
+func main() {
+    fmt.Println("Hello from Go!")
+}`,
+    rust: String.raw`fn main() {
+    println!("Hello from Rust!");
 }`,
     kotlin: String.raw`fun main() {
-    print("Enter your name: ")
-    val name = readLine() ?: ""
-    println("Hello, " + name + "!")
+    println("Hello from Kotlin!")
 }`,
-    sql: String.raw`CREATE TABLE students (id INTEGER, name TEXT, marks INTEGER);
-INSERT INTO students VALUES (1, 'Asha', 91), (2, 'Ravi', 78), (3, 'Meena', 85);
-SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
+    swift: String.raw`print("Hello from Swift!")`,
+    dart: String.raw`void main() {
+    print('Hello from Dart!');
+}`,
+    bash: String.raw`echo "Hello from Bash!"`,
+    lua: String.raw`print("Hello from Lua!")`,
+    scala: String.raw`object Main extends App {
+    println("Hello from Scala!")
+}`,
+    haskell: String.raw`main = putStrLn "Hello from Haskell!"`,
+    clojure: String.raw`(println "Hello from Clojure!")`,
+    sql: String.raw`CREATE TABLE students (id INT, name TEXT);
+INSERT INTO students VALUES (1, 'Alice');
+SELECT * FROM students;`
   };
 
   var JUDGE_URL = 'https://ce.judge0.com/submissions?base64_encoded=true&wait=true';
   var MODEL_DEFAULT = 'claude-sonnet-5-5';
 
-  // ---------- state ----------
   var editor = null;
   var suppressSave = false;
   var saveTimer = null;
@@ -337,7 +355,6 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
   var tests = [];
   try { tests = JSON.parse(store.get('tests', '[]')) || []; } catch (e) { tests = []; }
 
-  // shared link?
   var shared = null;
   if (location.hash.indexOf('#s=') === 0) {
     try { shared = JSON.parse(fromB64Url(location.hash.slice(3))); } catch (e) { shared = null; }
@@ -345,20 +362,73 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
   var currentLang = (shared && LANGS[shared.l]) ? shared.l : store.get('lang', 'c');
   if (!LANGS[currentLang]) currentLang = 'c';
 
-  // ---------- fill dropdowns ----------
-  var langSelect = $('language'), convTarget = $('convTarget');
-  Object.keys(LANGS).forEach(function (k) {
-    var o = el('option', '', LANGS[k].name); o.value = k; langSelect.appendChild(o);
-    var o2 = el('option', '', LANGS[k].name); o2.value = k; convTarget.appendChild(o2);
+  // ---------- Searchable Language Selector UI Logic ----------
+  var langSelectBtn = $('langSelectBtn');
+  var langDropdownMenu = $('langDropdownMenu');
+  var langSearchInput = $('langSearchInput');
+  var langOptionsList = $('langOptionsList');
+  var convTarget = $('convTarget');
+
+  function populateLanguages() {
+    langOptionsList.textContent = '';
+    convTarget.textContent = '';
+
+    Object.keys(LANGS).forEach(function (k) {
+      var item = el('div', 'lang-option-item' + (k === currentLang ? ' selected' : ''), LANGS[k].name);
+      item.dataset.lang = k;
+      item.addEventListener('click', function () {
+        switchLang(k);
+        closeLangDropdown();
+      });
+      langOptionsList.appendChild(item);
+
+      var o = el('option', '', LANGS[k].name); o.value = k; convTarget.appendChild(o);
+    });
+
+    langSelectBtn.querySelector('span').textContent = LANGS[currentLang].name;
+    convTarget.value = currentLang === 'python' ? 'cpp' : 'python';
+  }
+
+  function openLangDropdown() {
+    langDropdownMenu.classList.add('show');
+    langSearchInput.value = '';
+    filterLanguages('');
+    langSearchInput.focus();
+  }
+
+  function closeLangDropdown() {
+    langDropdownMenu.classList.remove('show');
+  }
+
+  function filterLanguages(query) {
+    var q = query.toLowerCase();
+    var items = langOptionsList.querySelectorAll('.lang-option-item');
+    items.forEach(function (item) {
+      var text = item.textContent.toLowerCase();
+      item.style.display = text.indexOf(q) !== -1 ? 'block' : 'none';
+    });
+  }
+
+  langSelectBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (langDropdownMenu.classList.contains('show')) closeLangDropdown();
+    else openLangDropdown();
   });
-  langSelect.value = currentLang;
-  convTarget.value = currentLang === 'python' ? 'cpp' : 'python';
+
+  langSearchInput.addEventListener('input', function () {
+    filterLanguages(langSearchInput.value);
+  });
+
+  document.addEventListener('click', function (e) {
+    if (!langDropdownMenu.contains(e.target) && e.target !== langSelectBtn) {
+      closeLangDropdown();
+    }
+  });
+
   $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', 'PolyCoder');
   document.documentElement.setAttribute('data-theme', theme);
-
   $('stdin').addEventListener('input', function () { store.set('stdin', $('stdin').value); });
 
-  // ---------- tabs ----------
   function showTab(name) {
     document.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
     document.querySelectorAll('.tabpanel').forEach(function (p) { p.classList.toggle('active', p.id === 'tab-' + name); });
@@ -367,7 +437,6 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
     t.addEventListener('click', function () { showTab(t.dataset.tab); });
   });
 
-  // ---------- code saving per language ----------
   function saveNow() {
     if (!editor) return;
     var c = editor.getValue();
@@ -375,7 +444,7 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
     else store.set('code.' + currentLang, c);
   }
   function loadCode(lang) {
-    var code = store.get('code.' + lang, TEMPLATES[lang]);
+    var code = store.get('code.' + lang, TEMPLATES[lang] || '');
     suppressSave = true;
     editor.setValue(code);
     suppressSave = false;
@@ -385,7 +454,7 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
     saveNow();
     currentLang = lang;
     store.set('lang', lang);
-    langSelect.value = lang;
+    populateLanguages();
     loadCode(lang);
     lastRun = null;
     $('explainBtn').style.display = 'none';
@@ -395,7 +464,6 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
     return store.get('code.' + lang, '');
   }
 
-  // ---------- running code on Judge0 ----------
   function judge(lang, code, stdin) {
     return fetch(JUDGE_URL, {
       method: 'POST',
@@ -442,13 +510,27 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
 
   function runMain() {
     if (running || !editor) return;
-    running = true; $('runBtn').disabled = true;
     showTab('io');
-    var lang = currentLang, code = editor.getValue(), stdin = $('stdin').value;
+    var lang = currentLang, code = editor.getValue();
+
+    // HTML Web Preview Rendering via iframe
+    if (lang === 'html') {
+      var out = $('output');
+      out.innerHTML = '<iframe id="htmlPreview" style="width:100%; height:300px; border:none; background:#fff; border-radius:4px;"></iframe>';
+      var doc = document.getElementById('htmlPreview').contentWindow.document;
+      doc.open(); doc.write(code); doc.close();
+      $('statusLine').textContent = '';
+      $('statusLine').appendChild(el('span', 'badge ok', 'Rendered'));
+      return;
+    }
+
+    running = true; $('runBtn').disabled = true;
+    var stdin = $('stdin').value;
     $('statusLine').textContent = '';
     $('statusLine').appendChild(el('span', 'badge run', 'Running...'));
     $('output').textContent = 'Running code on the server...';
     $('explainBtn').style.display = 'none';
+
     judge(lang, code, stdin).then(function (res) {
       lastRun = { lang: lang, code: code, stdin: stdin, res: res };
       renderOutput(res);
@@ -457,6 +539,7 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
       $('output').textContent = friendlyError(err);
     }).then(function () { running = false; $('runBtn').disabled = false; });
   }
+
   $('runBtn').addEventListener('click', runMain);
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMain(); }
@@ -467,8 +550,6 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
     if (navigator.clipboard) navigator.clipboard.writeText(txt).then(function () { toast('Output copied'); }, function () { toast('Copy failed'); });
   });
 
-  // ---------- toolbar buttons ----------
-  langSelect.addEventListener('change', function () { switchLang(langSelect.value); });
   $('resetBtn').addEventListener('click', function () {
     if (!confirm('Reset ' + LANGS[currentLang].name + ' code to the starter template?')) return;
     store.del('code.' + currentLang); loadCode(currentLang);
@@ -646,51 +727,8 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
   });
   $('removeKeyBtn').addEventListener('click', function () { store.del('apikey'); $('apiKey').value = ''; toast('Key removed'); });
 
-  function callClaude(prompt) {
-    var key = store.get('apikey', '');
-    if (!key) { openSettings(); return Promise.reject(new Error('Add your Anthropic API key first (⚙ AI key).')); }
-    return fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({ model: store.get('model', MODEL_DEFAULT), max_tokens: 2000, system: AI_SYSTEM,
-                            messages: [{ role: 'user', content: prompt }] })
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (j) {
-          throw new Error('AI request failed (' + res.status + ').' + (j.error && j.error.message ? ' ' + j.error.message : ''));
-        });
-      }
-      return res.json();
-    }).then(function (j) {
-      return (j.content || []).filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('\n');
-    });
-  }
-
-  function renderAI(text, allowInsert) {
-    var box = $('aiOut'); box.textContent = '';
-    var parts = text.split(/```[^\n]*\n([\s\S]*?)```/);
-    parts.forEach(function (p, idx) {
-      if (idx % 2 === 0) { if (p.trim()) box.appendChild(el('div', 'prose', p.trim())); return; }
-      var code = p.replace(/\n$/, '');
-      box.appendChild(el('pre', '', code));
-      var btns = el('div', 'codebtns');
-      var copy = el('button', '', 'Copy');
-      copy.addEventListener('click', function () { if (navigator.clipboard) navigator.clipboard.writeText(code).then(function () { toast('Copied'); }); });
-      btns.appendChild(copy);
-      if (allowInsert) {
-        var useBtn = el('button', 'primary', 'Use in editor');
-        useBtn.addEventListener('click', function () {
-          if (editor) editor.setValue(code);
-          toast('Code inserted');
-        });
-        btns.appendChild(useBtn);
-      }
-      box.appendChild(btns);
-    });
-  }
+  // Initialize languages searchable UI dropdown on load
+  populateLanguages();
 
   // ---------- Monaco Editor Initialization ----------
   require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
@@ -706,7 +744,6 @@ SELECT name, marks FROM students WHERE marks > 80 ORDER BY marks DESC;`
       scrollBeyondLastLine: false
     });
 
-    // Enable the run button once editor finishes mounting
     $('runBtn').disabled = false;
     $('output').textContent = 'Ready.';
 
