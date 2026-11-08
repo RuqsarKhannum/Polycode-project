@@ -608,15 +608,27 @@ SELECT * FROM students;`
       return;
     }
 
-    // Actively ask the user for input via prompt popup if the STDIN box is empty
+    // Smart context detection for input prompts
     var stdin = $('stdin').value;
     var needsInput = code.includes('input') || code.includes('readline') || code.includes('cin') || code.includes('scanf') || code.includes('gets') || code.includes('read-line') || code.includes('getLine');
     
     if (needsInput && !stdin) {
-      var userInput = window.prompt("Enter your input (e.g. Rohan):", "Rohan");
+      var promptMsg = "Enter your input (e.g. Rohan):";
+      var defaultVal = "Rohan";
+      
+      var lowerCode = code.toLowerCase();
+      if (lowerCode.includes('+') || lowerCode.includes('sum') || lowerCode.includes('add') || lowerCode.includes('num') || lowerCode.includes('a,') || lowerCode.includes('b')) {
+        promptMsg = "Enter numbers separated by space (e.g. 5 10):";
+        defaultVal = "5 10";
+      } else if (lowerCode.includes('age') || lowerCode.includes('year')) {
+        promptMsg = "Enter a number (e.g. 25):";
+        defaultVal = "25";
+      }
+
+      var userInput = window.prompt(promptMsg, defaultVal);
       if (userInput !== null) {
         stdin = userInput;
-        $('stdin').value = userInput; // Automatically updates the STDIN input block
+        $('stdin').value = userInput; // Automatically updates the STDIN block
       }
     }
 
