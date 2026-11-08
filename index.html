@@ -135,8 +135,8 @@
 
       <!-- Input / Output -->
       <div id="tab-io" class="tabpanel active">
-        <label for="stdin">Standard Input (STDIN)</label>
-        <textarea id="stdin" placeholder="Inputs for scanf, cin, input(), Scanner..."></textarea>
+        <label for="stdin">Standard Input (STDIN - Optional)</label>
+        <textarea id="stdin" placeholder="Optional manual inputs..."></textarea>
         <div class="row">
           <span class="hint">Run with the button or press Ctrl + Enter</span>
         </div>
@@ -155,13 +155,13 @@
           <button id="runTestsBtn" class="primary">▶ Run all tests</button>
           <strong id="testSummary"></strong>
         </div>
-        <p class="hint">Each test sends the input to your code and compares the output with the expected output.</p>
+        <p class="hint">Each test sends the input to your code and compares the output with expected output.</p>
         <div id="testList"></div>
       </div>
 
       <!-- Benchmark -->
       <div id="tab-bench" class="tabpanel">
-        <p class="hint">Compare the same program written in different languages using STDIN.</p>
+        <p class="hint">Compare performance across languages.</p>
         <div class="row">
           <button id="benchBtn" class="primary">▶ Run benchmark</button>
           <span id="benchStatus" class="hint"></span>
@@ -193,7 +193,7 @@
   <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off">
   <label for="modelName">Model</label>
   <input id="modelName" type="text">
-  <p class="hint">Your key is saved only in this browser (localStorage) and is sent only to api.anthropic.com.</p>
+  <p class="hint">Your key is saved only in this browser (localStorage).</p>
   <div class="row">
     <button id="saveKeyBtn" class="primary">Save</button>
     <button id="removeKeyBtn">Remove key</button>
@@ -254,7 +254,7 @@
     return e;
   }
 
-  // ---------- Comprehensive Languages List (Judge0 CE IDs + HTML Preview) ----------
+  // ---------- Comprehensive Languages List (Judge0 CE IDs + Clean Self-Contained Templates) ----------
   var LANGS = {
     html:       { name: 'HTML / Web',   id: null, monaco: 'html',       file: 'index.html' },
     c:          { name: 'C',            id: 50,   monaco: 'c',          file: 'main.c' },
@@ -282,63 +282,84 @@
   };
 
   var TEMPLATES = {
-    html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }\n    h1 { color: #007acc; }\n  </style>\n</head>\n<body>\n  <h1>Hello from PolyCode Web Preview!</h1>\n  <p>Edit this code to see live preview updates.</p>\n</body>\n</html>`,
+    html: `<!DOCTYPE html>\n<html>\n<head>\n  <style>\n    body { font-family: sans-serif; background: #1e1e1e; color: #fff; padding: 20px; }\n    h1 { color: #007acc; }\n  </style>\n</head>\n<body>\n  <h1>Hello from PolyCode Web Preview!</h1>\n</body>\n</html>`,
     c: String.raw`#include <stdio.h>
 int main() {
-    printf("Hello from C!\n");
+    char name[] = "PolyCoder";
+    printf("Hello, %s!\n", name);
     return 0;
 }`,
     cpp: String.raw`#include <iostream>
 using namespace std;
 int main() {
-    cout << "Hello from C++!" << endl;
+    string name = "PolyCoder";
+    cout << "Hello, " << name << "!" << endl;
     return 0;
 }`,
-    python: String.raw`print("Hello from Python!")`,
+    python: String.raw`name = "PolyCoder"
+print(f"Hello, {name}!")`,
     java: String.raw`public class Main {
     public static void main(String[] args) {
-        System.out.println("Hello from Java!");
+        String name = "PolyCoder";
+        System.out.println("Hello, " + name + "!");
     }
 }`,
-    javascript: String.raw`console.log("Hello from JavaScript!");`,
-    typescript: String.raw`const msg: string = "Hello from TypeScript!";
-console.log(msg);`,
-    julia: String.raw`println("Hello from Julia!")`,
-    r: String.raw`cat("Hello from R!\n")`,
+    javascript: String.raw`const name = "PolyCoder";
+console.log("Hello, " + name + "!");`,
+    typescript: String.raw`const name: string = "PolyCoder";
+console.log("Hello, " + name + "!");`,
+    julia: String.raw`name = "PolyCoder"
+println("Hello, $name!")`,
+    r: String.raw`name <- "PolyCoder"
+cat(paste0("Hello, ", name, "!\n"))`,
     csharp: String.raw`using System;
 class Program {
     static void Main() {
-        Console.WriteLine("Hello from C#!");
+        string name = "PolyCoder";
+        Console.WriteLine("Hello, " + name + "!");
     }
 }`,
     php: String.raw`<?php
-echo "Hello from PHP!\n";
+$name = "PolyCoder";
+echo "Hello, " . $name . "!\n";
 ?>`,
-    ruby: String.raw`puts "Hello from Ruby!"`,
+    ruby: String.raw`name = "PolyCoder"
+puts "Hello, #{name}!"`,
     go: String.raw`package main
 import "fmt"
 func main() {
-    fmt.Println("Hello from Go!")
+    name := "PolyCoder"
+    fmt.Printf("Hello, %s!\n", name)
 }`,
     rust: String.raw`fn main() {
-    println!("Hello from Rust!");
+    let name = "PolyCoder";
+    println!("Hello, {}!", name);
 }`,
     kotlin: String.raw`fun main() {
-    println("Hello from Kotlin!")
+    val name = "PolyCoder"
+    println("Hello, $name!")
 }`,
-    swift: String.raw`print("Hello from Swift!")`,
+    swift: String.raw`let name = "PolyCoder"
+print("Hello, \(name)!")`,
     dart: String.raw`void main() {
-    print('Hello from Dart!');
+    String name = 'PolyCoder';
+    print('Hello, $name!');
 }`,
-    bash: String.raw`echo "Hello from Bash!"`,
-    lua: String.raw`print("Hello from Lua!")`,
+    bash: String.raw`name="PolyCoder"
+echo "Hello, $name!"`,
+    lua: String.raw`local name = "PolyCoder"
+print("Hello, " .. name .. "!")`,
     scala: String.raw`object Main extends App {
-    println("Hello from Scala!")
+    val name = "PolyCoder"
+    println(s"Hello, $name!")
 }`,
-    haskell: String.raw`main = putStrLn "Hello from Haskell!"`,
-    clojure: String.raw`(println "Hello from Clojure!")`,
+    haskell: String.raw`main = do
+    let name = "PolyCoder"
+    putStrLn ("Hello, " ++ name ++ "!")`,
+    clojure: String.raw`(let [name "PolyCoder"]
+  (println (str "Hello, " name "!")))`,
     sql: String.raw`CREATE TABLE students (id INT, name TEXT);
-INSERT INTO students VALUES (1, 'Alice');
+INSERT INTO students VALUES (1, 'PolyCoder');
 SELECT * FROM students;`
   };
 
@@ -425,7 +446,7 @@ SELECT * FROM students;`
     }
   });
 
-  $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', 'PolyCoder');
+  $('stdin').value = (shared && typeof shared.i === 'string') ? shared.i : store.get('stdin', '');
   document.documentElement.setAttribute('data-theme', theme);
   $('stdin').addEventListener('input', function () { store.set('stdin', $('stdin').value); });
 
@@ -488,6 +509,7 @@ SELECT * FROM students;`
     return 'Network error: could not connect to the execution server.';
   }
 
+  // Trimmed output rendering ensuring clean string display
   function renderOutput(res) {
     var sl = $('statusLine'), out = $('output');
     sl.textContent = ''; out.textContent = '';
@@ -495,13 +517,16 @@ SELECT * FROM students;`
     sl.appendChild(b);
     if (res.time) sl.appendChild(el('span', 'meta', '⏱ ' + res.time + ' s'));
     if (res.memory) sl.appendChild(el('span', 'meta', '💾 ' + res.memory + ' KB'));
+    
+    var cleanStdout = res.stdout ? res.stdout.trim() : '';
+
     function section(label, text, cls) {
       if (!text) return;
       out.appendChild(el('span', 'lbl', label));
       out.appendChild(el('span', cls || '', text));
     }
     section('Compile output', res.compile, 'cmp');
-    section('Output', res.stdout, '');
+    section('Output', cleanStdout, '');
     section('Errors', res.stderr, 'err');
     section('Message', res.message, 'err');
     if (!out.firstChild) out.textContent = 'Program finished with no output.';
