@@ -190,6 +190,19 @@
 </dialog>
 <div id="toast"></div>
 
+<!-- Register Service Worker for PWA Installation -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('./sw.js').then(function(reg) {
+        console.log('ServiceWorker registered:', reg);
+      }).catch(function(err) {
+        console.log('ServiceWorker registration failed:', err);
+      });
+    });
+  }
+</script>
+
 <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script>
 (function () {
