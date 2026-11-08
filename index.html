@@ -592,6 +592,8 @@ SELECT * FROM students;`
     $('explainBtn').style.display = (res.statusId !== 3) ? 'inline-block' : 'none';
   }
 
+  var lastEditedCode = '';
+
   function runMain() {
     if (running || !editor) return;
     showTab('io');
@@ -608,7 +610,12 @@ SELECT * FROM students;`
       return;
     }
 
-    // Smart context detection for input prompts
+    // Auto-clear STDIN if code was changed since the last execution
+    if (lastEditedCode && lastEditedCode !== code) {
+      $('stdin').value = '';
+    }
+    lastEditedCode = code;
+
     var stdin = $('stdin').value;
     var needsInput = code.includes('input') || code.includes('readline') || code.includes('cin') || code.includes('scanf') || code.includes('gets') || code.includes('read-line') || code.includes('getLine');
     
@@ -617,10 +624,12 @@ SELECT * FROM students;`
       var defaultVal = "Rohan";
       
       var lowerCode = code.toLowerCase();
-      if (lowerCode.includes('+') || lowerCode.includes('sum') || lowerCode.includes('add') || lowerCode.includes('num') || lowerCode.includes('a,') || lowerCode.includes('b')) {
-        promptMsg = "Enter numbers separated by space (e.g. 5 10):";
+      var isMultiMath = (lowerCode.includes('a') && lowerCode.includes('b')) && (lowerCode.includes('+') || lowerCode.includes('sum') || lowerCode.includes('add') || lowerCode.includes('scanf') || lowerCode.includes('cin >>'));
+      
+      if (isMultiMath) {
+        promptMsg = "Enter two numbers separated by space (e.g. 5 10):";
         defaultVal = "5 10";
-      } else if (lowerCode.includes('age') || lowerCode.includes('year')) {
+      } else if (lowerCode.includes('age') || lowerCode.includes('year') || lowerCode.includes('number')) {
         promptMsg = "Enter a number (e.g. 25):";
         defaultVal = "25";
       }
@@ -628,7 +637,7 @@ SELECT * FROM students;`
       var userInput = window.prompt(promptMsg, defaultVal);
       if (userInput !== null) {
         stdin = userInput;
-        $('stdin').value = userInput; // Automatically updates the STDIN block
+        $('stdin').value = userInput;
       }
     }
 
